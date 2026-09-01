@@ -1,0 +1,15 @@
+# Dockerfile riêng cho Celery Worker + Beat (Mục 9.2 spec: "Celery Worker +
+# Beat → Container riêng trong cùng docker-compose").
+FROM python:3.11-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# CMD được override trong docker-compose.yml: worker dùng `celery -A celery_app worker`,
+# beat dùng `celery -A celery_app beat`
+CMD ["celery", "-A", "celery_app", "worker", "--loglevel=info"]

@@ -1,0 +1,868 @@
+// ============================================================================
+// 369 PLATFORM — PRISMA SCHEMA (PHASE 1: Nền tảng)
+// Modules: identity, members, businesses, stores, catalog
+// Chuẩn thiết kế bảng: id (uuid), created_at, updated_at, deleted_at (soft delete)
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE: identity
+// ─────────────────────────────────────────────────────────────────────────
+
+enum RoleName {
+  SUPER_ADMIN
+  ADMIN
+  ACCOUNTANT
+  SELLER
+  MEMBER
+  CUSTOMER
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  phone        String?   @unique
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  roles        UserRole[]
+  addresses    UserAddress[]
+  member       Member?
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        RoleName @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  roleId    String   @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model UserAddress {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  label      String? // "Nhà riêng", "Công ty"...
+  receiver   String
+  phone      String
+  province   String
+  district   String
+  ward       String
+  addressLine String  @map("address_line")
+  isDefault  Boolean  @default(false) @map("is_default")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_addresses")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String   // vd: "order.update_status"
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  beforeData Json?    @map("before_data")
+  afterData  Json?    @map("after_data")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE: members
+// ─────────────────────────────────────────────────────────────────────────
+
+enum MemberStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model Member {
+  id             String       @id @default(uuid())
+  userId         String       @unique @map("user_id")
+  memberCode     String       @unique @map("member_code") // vd: 369-000123
+  status         MemberStatus @default(PENDING)
+  referredById   String?      @map("referred_by_id") // tầng 1 duy nhất — xem Mục 4.3
+  points         Int          @default(0)
+  levelId        String?      @map("level_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referredBy   Member?         @relation("MemberReferral", fields: [referredById], references: [id])
+  referrals    Member[]        @relation("MemberReferral")
+  business     Business?
+  level        MemberLevel?    @relation(fields: [levelId], references: [id])
+  commissionsReceived CommissionTransaction[]
+  commissionPayouts   CommissionPayout[]
+  pointTransactions   PointTransaction[]
+  lessonCompletions   MemberLessonCompletion[]
+
+  @@map("members")
+}
+
+model MemberLevel {
+  id            String   @id @default(uuid())
+  name          String   @unique // "Thành viên", "Bạc", "Vàng"...
+  minPoints     Int      @map("min_points")
+  benefits      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  members Member[]
+
+  @@map("member_levels")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE: businesses (hộ kinh doanh)
+// ─────────────────────────────────────────────────────────────────────────
+
+enum BusinessStatus {
+  DRAFT
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+}
+
+model Business {
+  id             String         @id @default(uuid())
+  memberId       String         @unique @map("member_id")
+  businessName   String         @map("business_name")
+  taxCode        String?        @unique @map("tax_code")
+  ownerIdCard    String         @map("owner_id_card") // CCCD — nên mã hoá ở app-level khi triển khai thật
+  address        String
+  status         BusinessStatus @default(DRAFT)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  deletedAt      DateTime?      @map("deleted_at")
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  store  Store?
+
+  @@map("businesses")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE: stores (gian hàng)
+// ─────────────────────────────────────────────────────────────────────────
+
+enum StoreStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Store {
+  id          String      @id @default(uuid())
+  businessId  String      @unique @map("business_id")
+  slug        String      @unique
+  name        String
+  description String?
+  logoUrl     String?     @map("logo_url")
+  status      StoreStatus @default(ACTIVE)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  deletedAt   DateTime?   @map("deleted_at")
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  products Product[]
+  orders   Order[]
+  promotions Promotion[]
+  incomeTransactions  IncomeTransaction[]
+  expenseTransactions ExpenseTransaction[]
+
+  @@map("stores")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE: catalog (products, categories)
+// ─────────────────────────────────────────────────────────────────────────
+
+model Category {
+  id        String    @id @default(uuid())
+  slug      String    @unique
+  name      String
+  parentId  String?   @map("parent_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products ProductCategory[]
+
+  @@map("categories")
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  storeId     String        @map("store_id")
+  slug        String        @unique
+  name        String
+  description String?
+  basePrice   Decimal       @map("base_price") @db.Decimal(14, 2)
+  status      ProductStatus @default(DRAFT)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  deletedAt   DateTime?     @map("deleted_at")
+
+  store      Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  categories ProductCategory[]
+  images     ProductImage[]
+  inventory  ProductInventory?
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([storeId])
+  @@map("products")
+}
+
+model ProductCategory {
+  productId  String @map("product_id")
+  categoryId String @map("category_id")
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@map("product_categories")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String   @map("product_id")
+  url       String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+// Bảng kho tối giản cho Phase 1 — logic reserve/lock (Redis) sẽ bổ sung ở Phase 2
+model ProductInventory {
+  id                String   @id @default(uuid())
+  productId         String   @unique @map("product_id")
+  quantityOnHand    Int      @default(0) @map("quantity_on_hand")
+  reservedQuantity  Int      @default(0) @map("reserved_quantity") // ★ Phase 2: số lượng đang giữ chỗ (chưa trừ vĩnh viễn)
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  product      Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reservations InventoryReservation[]
+
+  @@map("product_inventory")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 2 — BÁN HÀNG: Cart, Inventory Reservation, Order, Shipping, Payment
+// (Mục 3.1, 3.4, 4.1 spec: cơ chế chống oversell bằng Redis lock + reserve stock)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE: cart-order (giỏ hàng)
+// ─────────────────────────────────────────────────────────────────────────
+
+model Cart {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String   @map("cart_id")
+  productId String   @map("product_id")
+  quantity  Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE: inventory — giữ kho (reserve) chống oversell (Mục 4.1 spec)
+// ─────────────────────────────────────────────────────────────────────────
+
+enum ReservationStatus {
+  ACTIVE     // đang giữ chỗ, chờ thanh toán/xác nhận
+  COMMITTED  // đã trừ kho vĩnh viễn (order.paid hoặc COD confirmed)
+  RELEASED   // đã huỷ giữ chỗ (hết hạn / thanh toán thất bại / huỷ đơn)
+}
+
+model InventoryReservation {
+  id        String            @id @default(uuid())
+  productId String            @map("product_id")
+  orderId   String            @map("order_id")
+  quantity  Int
+  status    ReservationStatus @default(ACTIVE)
+  expiresAt DateTime          @map("expires_at") // TTL 15 phút kể từ lúc tạo (Mục 4.1 spec)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  inventory ProductInventory @relation(fields: [productId], references: [productId])
+  order     Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status, expiresAt])
+  @@map("inventory_reservations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE: cart-order (orders) — mỗi Order thuộc về ĐÚNG 1 Store
+// (checkout tách giỏ hàng theo store thành nhiều Order riêng — giống Shopee)
+// ─────────────────────────────────────────────────────────────────────────
+
+enum OrderStatus {
+  PENDING_PAYMENT  // chờ thanh toán online — có TTL 15 phút
+  PENDING_CONFIRM  // COD — chờ seller xác nhận
+  PAID             // đã thanh toán online thành công
+  CONFIRMED        // seller đã xác nhận xử lý đơn
+  PACKED           // đã đóng gói
+  SHIPPING         // đang giao
+  DELIVERED        // đã giao — chờ khách xác nhận
+  COMPLETED        // khách xác nhận đã nhận / tự động sau N ngày
+  CANCELLED        // huỷ (khách huỷ, hết hạn thanh toán, hết hàng)
+  PAYMENT_FAILED   // thanh toán thất bại
+  REFUNDED         // đã hoàn tiền
+}
+
+enum PaymentMethod {
+  COD
+  ONLINE
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  orderCode     String        @unique @map("order_code") // vd: ORD-000123
+  userId        String        @map("user_id")
+  storeId       String        @map("store_id")
+  status        OrderStatus   @default(PENDING_PAYMENT)
+  paymentMethod PaymentMethod @map("payment_method")
+  subtotal      Decimal       @db.Decimal(14, 2)
+  shippingFee   Decimal       @db.Decimal(14, 2) @default(0)
+  discountAmount Decimal      @map("discount_amount") @db.Decimal(14, 2) @default(0) // ★ Phase 3
+  promotionId   String?       @map("promotion_id") // ★ Phase 3
+  totalAmount   Decimal       @map("total_amount") @db.Decimal(14, 2)
+  note          String?
+  paymentDueAt  DateTime?     @map("payment_due_at") // hạn thanh toán — dùng cho job auto-cancel
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  deletedAt     DateTime?     @map("deleted_at")
+
+  store          Store                   @relation(fields: [storeId], references: [id])
+  promotion      Promotion?              @relation(fields: [promotionId], references: [id])
+  items          OrderItem[]
+  statusHistory  OrderStatusHistory[]
+  address        OrderAddress?
+  reservations   InventoryReservation[]
+  payment        Payment?
+  shippingOrder  ShippingOrder?
+  promotionUsage PromotionUsage?
+  incomeTransaction   IncomeTransaction?
+  expenseTransactions ExpenseTransaction[]
+  commissionTransaction CommissionTransaction?
+
+  @@index([userId])
+  @@index([storeId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String   @map("order_id")
+  productId   String   @map("product_id")
+  productName String   @map("product_name") // snapshot tên SP tại thời điểm đặt hàng
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(14, 2) // snapshot giá — không đổi dù seller sửa giá sau
+  quantity    Int
+  subtotal    Decimal  @db.Decimal(14, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id         String      @id @default(uuid())
+  orderId    String      @map("order_id")
+  fromStatus OrderStatus? @map("from_status")
+  toStatus   OrderStatus  @map("to_status")
+  note       String?
+  createdBy  String?     @map("created_by") // userId thực hiện thay đổi (seller/system/customer)
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_status_history")
+}
+
+model OrderAddress {
+  id          String   @id @default(uuid())
+  orderId     String   @unique @map("order_id")
+  receiver    String
+  phone       String
+  province    String
+  district    String
+  ward        String
+  addressLine String   @map("address_line")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_addresses")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE: shipping
+// ─────────────────────────────────────────────────────────────────────────
+
+enum ShippingStatus {
+  PENDING
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+model ShippingMethod {
+  id            String   @id @default(uuid())
+  code          String   @unique // "standard" | "express"
+  name          String
+  baseFee       Decimal  @map("base_fee") @db.Decimal(14, 2)
+  estimatedDays Int      @map("estimated_days")
+  isActive      Boolean  @default(true) @map("is_active")
+
+  @@map("shipping_methods")
+}
+
+model ShippingOrder {
+  id          String         @id @default(uuid())
+  orderId     String         @unique @map("order_id")
+  carrierName String         @map("carrier_name") // "GHN" | "GHTK"... (Phase 2: giá trị giả lập)
+  trackingCode String?       @map("tracking_code")
+  status      ShippingStatus @default(PENDING)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  order    Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tracking ShippingTracking[]
+
+  @@map("shipping_orders")
+}
+
+model ShippingTracking {
+  id              String         @id @default(uuid())
+  shippingOrderId String         @map("shipping_order_id")
+  status          ShippingStatus
+  note            String?
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  shippingOrder ShippingOrder @relation(fields: [shippingOrderId], references: [id], onDelete: Cascade)
+
+  @@map("shipping_tracking")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE: payment
+// ─────────────────────────────────────────────────────────────────────────
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  orderId         String        @unique @map("order_id")
+  method          PaymentMethod
+  amount          Decimal       @db.Decimal(14, 2)
+  status          PaymentStatus @default(PENDING)
+  gatewayProvider String?       @map("gateway_provider") // "mock" | "vnpay" | "momo"...
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  order        Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  transactions PaymentTransaction[]
+  refunds      Refund[]
+
+  @@map("payments")
+}
+
+model PaymentTransaction {
+  id                  String        @id @default(uuid())
+  paymentId           String        @map("payment_id")
+  gatewayTransactionId String?      @unique @map("gateway_transaction_id") // ★ idempotency key — chống xử lý webhook trùng
+  amount              Decimal       @db.Decimal(14, 2)
+  status              PaymentStatus
+  rawPayload          Json?         @map("raw_payload") // lưu nguyên payload webhook để đối soát (Mục 4.2 spec)
+  createdAt           DateTime      @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_transactions")
+}
+
+model Refund {
+  id        String        @id @default(uuid())
+  paymentId String        @map("payment_id")
+  amount    Decimal       @db.Decimal(14, 2)
+  reason    String?
+  status    PaymentStatus @default(PENDING)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("refunds")
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 3 — SELLER CENTER: Promotions (khuyến mãi)
+// (Mục 6 spec Phase 3: "Khuyến mãi" trong Seller Center)
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum PromotionType {
+  PERCENTAGE   // giảm theo %
+  FIXED_AMOUNT // giảm số tiền cố định
+}
+
+model Promotion {
+  id                String        @id @default(uuid())
+  storeId           String        @map("store_id")
+  code              String        @map("code") // vd: "SALE50" — unique TRONG PHẠM VI 1 store
+  type              PromotionType
+  value             Decimal       @db.Decimal(14, 2) // % (vd 10) hoặc số tiền cố định
+  minOrderAmount    Decimal       @map("min_order_amount") @db.Decimal(14, 2) @default(0)
+  maxDiscountAmount Decimal?      @map("max_discount_amount") @db.Decimal(14, 2) // trần giảm giá khi type=PERCENTAGE
+  usageLimit        Int?          @map("usage_limit") // null = không giới hạn
+  usedCount         Int           @default(0) @map("used_count")
+  startsAt          DateTime      @map("starts_at")
+  endsAt            DateTime      @map("ends_at")
+  isActive          Boolean       @default(true) @map("is_active")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  deletedAt         DateTime?     @map("deleted_at")
+
+  store  Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders Order[]
+  usages PromotionUsage[]
+
+  @@unique([storeId, code])
+  @@map("promotions")
+}
+
+model PromotionUsage {
+  id             String   @id @default(uuid())
+  promotionId    String   @map("promotion_id")
+  orderId        String   @unique @map("order_id")
+  userId         String   @map("user_id")
+  discountAmount Decimal  @map("discount_amount") @db.Decimal(14, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("promotion_usages")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 4 — KẾ TOÁN (Mục 3.6, 4.4, 5.3 spec)
+// NGUYÊN TẮC: đây là bút toán GỐC, ghi transactional NGAY khi order.paid xảy
+// ra — là "nguồn sự thật" mà Python Accounting Service (Mục 3.6) sẽ đọc qua
+// Read Replica để tính P&L/dự báo, KHÔNG được sửa trực tiếp bởi Python.
+// ═══════════════════════════════════════════════════════════════════════════
+
+model IncomeTransaction {
+  id          String   @id @default(uuid())
+  storeId     String   @map("store_id")
+  orderId     String   @unique @map("order_id") // unique — chống ghi trùng nếu event order.paid vô tình chạy lại
+  amount      Decimal  @db.Decimal(14, 2) // doanh thu = subtotal - discountAmount (Mục 4.4 spec)
+  description String
+  occurredAt  DateTime @map("occurred_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  store Store @relation(fields: [storeId], references: [id])
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([storeId, occurredAt])
+  @@map("income_transactions")
+}
+
+enum ExpenseCategory {
+  PLATFORM_FEE // phí sàn (Mục 13 spec: mô hình kinh doanh)
+  COMMISSION   // hoa hồng giới thiệu (Phase 5)
+  SHIPPING     // chi phí vận chuyển
+  REFUND       // hoàn tiền
+  OTHER
+}
+
+model ExpenseTransaction {
+  id          String          @id @default(uuid())
+  storeId     String          @map("store_id")
+  orderId     String?         @map("order_id")
+  category    ExpenseCategory
+  amount      Decimal         @db.Decimal(14, 2)
+  description String
+  occurredAt  DateTime        @map("occurred_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  store Store  @relation(fields: [storeId], references: [id])
+  order Order? @relation(fields: [orderId], references: [id])
+
+  @@unique([orderId, category]) // chống ghi trùng phí sàn/hoa hồng cho cùng 1 đơn
+  @@index([storeId, occurredAt])
+  @@map("expense_transactions")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 4 — Bảng do PYTHON ACCOUNTING SERVICE sở hữu quyền GHI (Mục 3.6.5 spec)
+// NestJS vẫn quản lý MIGRATION (tạo bảng) vì dùng chung 1 Postgres, nhưng
+// KHÔNG ghi dữ liệu vào các bảng này — chỉ đọc để trả về cho Frontend qua
+// GET /api/v1/accounting/reports/* (Mục 3.6.2 sơ đồ kiến trúc).
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum ReportPeriodType {
+  DAILY
+  MONTHLY
+}
+
+model AccountingReport {
+  id           String           @id @default(uuid())
+  storeId      String           @map("store_id")
+  periodType   ReportPeriodType @map("period_type")
+  periodStart  DateTime         @map("period_start")
+  periodEnd    DateTime         @map("period_end")
+  totalRevenue Decimal          @map("total_revenue") @db.Decimal(14, 2)
+  totalExpense Decimal          @map("total_expense") @db.Decimal(14, 2)
+  netProfit    Decimal          @map("net_profit") @db.Decimal(14, 2)
+  generatedAt  DateTime         @default(now()) @map("generated_at")
+
+  @@unique([storeId, periodType, periodStart])
+  @@map("accounting_reports")
+}
+
+model RevenueForecast {
+  id               String   @id @default(uuid())
+  storeId          String   @map("store_id")
+  forecastDate     DateTime @map("forecast_date")
+  predictedRevenue Decimal  @map("predicted_revenue") @db.Decimal(14, 2)
+  confidenceLow    Decimal? @map("confidence_low") @db.Decimal(14, 2)
+  confidenceHigh   Decimal? @map("confidence_high") @db.Decimal(14, 2)
+  generatedAt      DateTime @default(now()) @map("generated_at")
+
+  @@unique([storeId, forecastDate])
+  @@map("revenue_forecasts")
+}
+
+model TaxEstimationSnapshot {
+  id                String   @id @default(uuid())
+  storeId           String   @map("store_id")
+  periodLabel       String   @map("period_label") // vd: "2026-Q1"
+  estimatedRevenue  Decimal  @map("estimated_revenue") @db.Decimal(14, 2)
+  estimatedTaxAmount Decimal @map("estimated_tax_amount") @db.Decimal(14, 2)
+  taxRate           Decimal  @map("tax_rate") @db.Decimal(5, 4) // vd 0.015 = 1.5% thuế khoán hộ KD
+  generatedAt       DateTime @default(now()) @map("generated_at")
+
+  @@unique([storeId, periodLabel])
+  @@map("tax_estimation_snapshots")
+}
+
+model ReportExportFile {
+  id          String   @id @default(uuid())
+  storeId     String   @map("store_id")
+  reportType  String   @map("report_type") // "pnl" | "revenue" | "tax"
+  fileUrl     String   @map("file_url") // Object Storage URL (Mục 9.2 spec)
+  periodLabel String   @map("period_label")
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  @@map("report_export_files")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 5 — HỆ SINH THÁI 369: Commission, Points, Learning
+// (Mục 4.3, 5.3, 6 spec)
+//
+// GIẢ ĐỊNH THIẾT KẾ (ghi rõ vì spec gốc không nói chi tiết): hoa hồng được
+// trả cho MEMBER đã giới thiệu NGƯỜI MUA (buyer) — mô hình affiliate/giới
+// thiệu khách hàng, đúng tinh thần Mục 14 spec "mỗi thành viên 369 vừa là
+// người mua – người bán – người giới thiệu". Nếu người mua không phải Member
+// hoặc không có referredById, đơn hàng đó KHÔNG phát sinh hoa hồng.
+// ═══════════════════════════════════════════════════════════════════════════
+
+model CommissionRule {
+  id          String   @id @default(uuid())
+  name        String
+  ratePercent Decimal  @map("rate_percent") @db.Decimal(5, 2) // vd: 5.00 = 5% — CHỈ 1 TẦNG (Mục 4.3 spec)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("commission_rules")
+}
+
+enum CommissionStatus {
+  PENDING   // đang giữ, chờ hết thời gian bảo vệ (7-14 ngày)
+  APPROVED  // đã duyệt, chờ gộp vào kỳ chi trả
+  PAID      // đã chi trả
+  REJECTED  // đơn bị huỷ/hoàn trong thời gian giữ — không trả hoa hồng
+}
+
+model CommissionTransaction {
+  id          String            @id @default(uuid())
+  referrerId  String            @map("referrer_id") // Member được nhận hoa hồng
+  orderId     String            @unique @map("order_id")
+  ruleId      String?           @map("rule_id")
+  amount      Decimal           @db.Decimal(14, 2)
+  status      CommissionStatus  @default(PENDING)
+  holdUntil   DateTime          @map("hold_until") // Mục 4.3 spec: giữ 7-14 ngày
+  payoutId    String?           @map("payout_id")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  referrer Member           @relation(fields: [referrerId], references: [id])
+  order    Order            @relation(fields: [orderId], references: [id])
+  payout   CommissionPayout? @relation(fields: [payoutId], references: [id])
+
+  @@index([status, holdUntil])
+  @@map("commission_transactions")
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+}
+
+model CommissionPayout {
+  id          String       @id @default(uuid())
+  referrerId  String       @map("referrer_id")
+  periodLabel String       @map("period_label") // vd: "2026-06-P1" (kỳ chi trả 2 lần/tháng — Mục 4.3 spec)
+  totalAmount Decimal      @map("total_amount") @db.Decimal(14, 2)
+  status      PayoutStatus @default(PENDING)
+  paidAt      DateTime?    @map("paid_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  referrer     Member                   @relation(fields: [referrerId], references: [id])
+  transactions CommissionTransaction[]
+
+  @@map("commission_payouts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Points (điểm tích luỹ) — Mục 4.1 spec: "HOÀN TẤT → cộng điểm tích lũy"
+// ─────────────────────────────────────────────────────────────────────────
+
+model PointTransaction {
+  id        String   @id @default(uuid())
+  memberId  String   @map("member_id")
+  orderId   String?  @map("order_id")
+  points    Int // dương = cộng, âm = trừ (đổi quà, điều chỉnh)
+  reason    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@map("point_transactions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Learning (đào tạo) — Mục 5.3 spec: learning_courses, learning_lessons
+// ─────────────────────────────────────────────────────────────────────────
+
+model LearningCourse {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  coverUrl    String?  @map("cover_url")
+  isPublished Boolean  @default(false) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  lessons LearningLesson[]
+
+  @@map("learning_courses")
+}
+
+model LearningLesson {
+  id        String   @id @default(uuid())
+  courseId  String   @map("course_id")
+  title     String
+  content   String? // markdown/text
+  videoUrl  String?  @map("video_url")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  course      LearningCourse             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  completions MemberLessonCompletion[]
+
+  @@map("learning_lessons")
+}
+
+model MemberLessonCompletion {
+  id          String   @id @default(uuid())
+  memberId    String   @map("member_id")
+  lessonId    String   @map("lesson_id")
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  member Member         @relation(fields: [memberId], references: [id])
+  lesson LearningLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, lessonId])
+  @@map("member_lesson_completions")
+}

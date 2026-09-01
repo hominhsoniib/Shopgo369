@@ -1,0 +1,29 @@
+name: platform_369_mobile
+description: "369 Platform — Mobile App (Flutter). Dùng chung API với Web (Mục 12 spec)."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  dio: ^5.4.1                     # HTTP client — gọi API NestJS (Mục 5.6 spec)
+  flutter_secure_storage: ^9.0.0  # lưu accessToken/refreshToken an toàn (Mục 7.2 spec)
+  provider: ^6.1.2                # state management đơn giản, đủ cho Phase 6
+  go_router: ^13.2.0              # điều hướng theo route giống cấu trúc URL Web (Mục 5.4 spec)
+  intl: ^0.19.0                   # định dạng tiền tệ VNĐ
+  cached_network_image: ^3.3.1
+  flutter_secure_storage_platform_interface: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/

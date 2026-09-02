@@ -93,25 +93,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             TextField(controller: _addressLineController, decoration: const InputDecoration(labelText: 'Địa chỉ cụ thể')),
             const SizedBox(height: 16),
             const Text('Vận chuyển', style: TextStyle(fontWeight: FontWeight.bold)),
-            ..._shippingMethods.map((m) => RadioListTile<String>(
-                  value: m['id'],
-                  groupValue: _selectedShippingMethodId,
-                  onChanged: (v) => setState(() => _selectedShippingMethodId = v),
-                  title: Text('${m['name']} — ${m['baseFee']}đ'),
-                )),
+            RadioGroup<String>(
+              groupValue: _selectedShippingMethodId,
+              onChanged: (v) => setState(() => _selectedShippingMethodId = v),
+              child: Column(
+                children: _shippingMethods
+                    .map((m) => RadioListTile<String>(
+                          value: m['id'],
+                          title: Text('${m['name']} — ${m['baseFee']}đ'),
+                        ))
+                    .toList(),
+              ),
+            ),
             const SizedBox(height: 16),
             const Text('Thanh toán', style: TextStyle(fontWeight: FontWeight.bold)),
-            RadioListTile<String>(
-              value: 'ONLINE',
+            RadioGroup<String>(
               groupValue: _paymentMethod,
               onChanged: (v) => setState(() => _paymentMethod = v!),
-              title: const Text('Thanh toán online'),
-            ),
-            RadioListTile<String>(
-              value: 'COD',
-              groupValue: _paymentMethod,
-              onChanged: (v) => setState(() => _paymentMethod = v!),
-              title: const Text('Thanh toán khi nhận hàng (COD)'),
+              child: const Column(
+                children: [
+                  RadioListTile<String>(value: 'ONLINE', title: Text('Thanh toán online')),
+                  RadioListTile<String>(value: 'COD', title: Text('Thanh toán khi nhận hàng (COD)')),
+                ],
+              ),
             ),
             if (_error != null) Padding(
               padding: const EdgeInsets.only(top: 8),

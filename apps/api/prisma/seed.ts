@@ -3,6 +3,35 @@ import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 
+/**
+ * Đọc email/mật khẩu tài khoản seed từ biến môi trường.
+ *
+ * BẢO MẬT: nếu NODE_ENV=production mà biến môi trường tương ứng chưa được
+ * đặt, HÀM SẼ THROW — chặn cứng việc lỡ tay chạy `prisma db seed` trên
+ * production và tạo ra tài khoản admin với mật khẩu mặc định đã công khai
+ * trong README/mã nguồn (admin@369.vn / ChangeMe@369). Ở dev/staging vẫn
+ * cho phép fallback về giá trị mặc định để tiện làm việc.
+ */
+function resolveSeedCredential(
+  envVarName: string,
+  devDefault: string,
+  label: string,
+): { value: string; isDefault: boolean } {
+  const fromEnv = process.env[envVarName]?.trim();
+  if (fromEnv) {
+    return { value: fromEnv, isDefault: false };
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      `[SEED] Thiếu biến môi trường ${envVarName} khi NODE_ENV=production. ` +
+        `Không được seed tài khoản ${label} với giá trị mặc định (đã công khai trong ` +
+        `mã nguồn/README) lên môi trường production. Đặt ${envVarName} trong .env ` +
+        `(sinh giá trị mạnh, KHÔNG dùng "${devDefault}") rồi chạy lại seed.`,
+    );
+  }
+  return { value: devDefault, isDefault: true };
+}
+
 async function main() {
   console.log('🌱 Seeding roles...');
   for (const name of Object.values(RoleName)) {
@@ -52,13 +81,15 @@ async function main() {
 
   console.log('🌱 Seeding tài khoản Super Admin mặc định...');
   const adminRole = await prisma.role.findUniqueOrThrow({ where: { name: RoleName.SUPER_ADMIN } });
-  const passwordHash = await argon2.hash('ChangeMe@369');
+  const adminEmail = resolveSeedCredential('SEED_ADMIN_EMAIL', 'admin@369.vn', 'Super Admin');
+  const adminPassword = resolveSeedCredential('SEED_ADMIN_PASSWORD', 'ChangeMe@369', 'Super Admin');
+  const passwordHash = await argon2.hash(adminPassword.value);
 
   await prisma.user.upsert({
-    where: { email: 'admin@369.vn' },
+    where: { email: adminEmail.value },
     update: {},
     create: {
-      email: 'admin@369.vn',
+      email: adminEmail.value,
       fullName: 'Super Admin 369',
       passwordHash,
       roles: { create: { roleId: adminRole.id } },
@@ -70,13 +101,15 @@ async function main() {
   const sellerRole = await prisma.role.findUniqueOrThrow({ where: { name: RoleName.SELLER } });
 
   // Tạo tài khoản Seller mẫu
+  const sellerEmail = resolveSeedCredential('SEED_SELLER_EMAIL', 'seller@369.vn', 'Seller mẫu');
+  const sellerPassword = resolveSeedCredential('SEED_SELLER_PASSWORD', 'SellerMe@369', 'Seller mẫu');
   const sellerUser = await prisma.user.upsert({
-    where: { email: 'seller@369.vn' },
+    where: { email: sellerEmail.value },
     update: {},
     create: {
-      email: 'seller@369.vn',
+      email: sellerEmail.value,
       fullName: 'Hộ Kinh Doanh Nông Sản 369',
-      passwordHash: await argon2.hash('SellerMe@369'),
+      passwordHash: await argon2.hash(sellerPassword.value),
       roles: {
         create: [{ roleId: customerRole.id }, { roleId: sellerRole.id }],
       },
@@ -195,7 +228,19 @@ async function main() {
     });
   }
 
-  console.log('✅ Seed hoàn tất. Đăng nhập admin: admin@369.vn / ChangeMe@369 | seller: seller@369.vn / SellerMe@369');
+  console.log('✅ Seed hoàn tất.');
+  if (adminPassword.isDefault || sellerPassword.isDefault) {
+    console.log(
+      '⚠️  Đang dùng mật khẩu MẶC ĐỊNH cho dev (đã công khai trong README/mã nguồn) — ' +
+        'CHỈ dùng cho local dev. Đặt SEED_ADMIN_PASSWORD / SEED_SELLER_PASSWORD trong .env ' +
+        'trước khi seed lên staging/production.',
+    );
+    console.log(`   admin:  ${adminEmail.value} / ${adminPassword.isDefault ? adminPassword.value : '(đã đặt qua .env, không in ra)'}`);
+    console.log(`   seller: ${sellerEmail.value} / ${sellerPassword.isDefault ? sellerPassword.value : '(đã đặt qua .env, không in ra)'}`);
+  } else {
+    console.log(`   admin:  ${adminEmail.value} (mật khẩu đã đặt qua .env, không in ra)`);
+    console.log(`   seller: ${sellerEmail.value} (mật khẩu đã đặt qua .env, không in ra)`);
+  }
 }
 
 main()

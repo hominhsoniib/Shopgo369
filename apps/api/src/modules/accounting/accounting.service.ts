@@ -92,6 +92,44 @@ export class AccountingService {
   }
 
   /**
+   * Ghi bút toán chi phí hoàn tiền cho MỘT SỐ TIỀN CỤ THỂ (khác với
+   * reverseOrderIncome ở trên vốn luôn đảo TOÀN BỘ doanh thu gốc) — dùng bởi
+   * Refund API (bổ sung sau Phase 2), hỗ trợ cả hoàn toàn phần lẫn một phần.
+   *
+   * LƯU Ý QUAN TRỌNG: `ExpenseTransaction` có ràng buộc DB `@@unique([orderId,
+   * category])` — nghĩa là CHỈ được ghi 1 bút toán REFUND cho mỗi đơn hàng.
+   * Vì vậy RefundService CHỈ cho phép tối đa 1 refund/đơn (xem RefundService.
+   * createRefund — chặn tạo refund mới nếu đơn đã có refund PENDING/SUCCESS).
+   * Idempotent tự nhiên nhờ ràng buộc này: gọi lại 2 lần cho cùng đơn sẽ ném
+   * lỗi unique constraint ở lần 2 — được bắt và bỏ qua an toàn bên dưới.
+   */
+  async recordRefund(orderId: string, amount: number, reason: string): Promise<void> {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Đơn hàng không tồn tại');
+
+    const existing = await this.prisma.expenseTransaction.findUnique({
+      where: { orderId_category: { orderId, category: ExpenseCategory.REFUND } },
+    });
+    if (existing) {
+      this.logger.log(`Đơn ${order.orderCode} đã được ghi kế toán hoàn tiền trước đó — bỏ qua (idempotent)`);
+      return;
+    }
+
+    await this.prisma.expenseTransaction.create({
+      data: {
+        storeId: order.storeId,
+        orderId,
+        category: ExpenseCategory.REFUND,
+        amount,
+        description: `Hoàn tiền — ${reason}`,
+        occurredAt: new Date(),
+      },
+    });
+
+    this.logger.log(`Đã ghi kế toán hoàn tiền ${amount}đ cho đơn ${order.orderCode}`);
+  }
+
+  /**
    * Sổ Thu-Chi cơ bản cho seller (Mục 3.6.1 spec: "API CRUD cơ bản: xem sổ
    * thu-chi theo ngày/tháng — query đơn giản, KHÔNG phải báo cáo nặng").
    * Báo cáo P&L đầy đủ + dự báo sẽ do Python Accounting Service đảm nhiệm

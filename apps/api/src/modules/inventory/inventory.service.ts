@@ -116,6 +116,40 @@ export class InventoryService {
     }
   }
 
+  /**
+   * Nhập lại kho khi đơn hàng được HOÀN TIỀN TOÀN PHẦN (Refund API — bổ sung
+   * sau Phase 2). Đơn đã ở trạng thái COMMITTED (đã trừ vĩnh viễn quantityOnHand
+   * lúc thanh toán thành công), nên hoàn tiền toàn phần đồng nghĩa hàng được
+   * trả lại kho. Dùng cùng cơ chế Redis lock theo productId như các thao tác
+   * kho khác — tránh race condition nếu vừa lúc có request khác đang giữ/trừ
+   * kho đúng sản phẩm này.
+   *
+   * KHÔNG dùng cho hoàn tiền MỘT PHẦN (partial refund) — trường hợp đó không
+   * chắc chắn khách đã trả lại hàng vật lý, nên KHÔNG tự động nhập kho; seller
+   * cần tự điều chỉnh qua adjustStock() nếu thực tế có nhận lại hàng.
+   */
+  async restockFromRefund(orderId: string): Promise<void> {
+    const items = await this.prisma.orderItem.findMany({
+      where: { orderId },
+      select: { productId: true, quantity: true },
+    });
+
+    for (const item of items) {
+      const lockKey = `lock:inventory:${item.productId}`;
+      await this.lockService.runExclusive(lockKey, async () => {
+        await this.prisma.productInventory.upsert({
+          where: { productId: item.productId },
+          update: { quantityOnHand: { increment: item.quantity } },
+          create: { productId: item.productId, quantityOnHand: item.quantity, reservedQuantity: 0 },
+        });
+      });
+    }
+
+    if (items.length > 0) {
+      this.logger.log(`Đã nhập lại kho cho ${items.length} sản phẩm của đơn hoàn tiền toàn phần ${orderId}`);
+    }
+  }
+
   /** Dùng cho cron/queue dọn các reservation đã hết hạn nhưng chưa được release (an toàn 2 lớp) */
   async releaseExpiredReservations(): Promise<number> {
     const expired = await this.prisma.inventoryReservation.findMany({

@@ -50,7 +50,7 @@ export class OrdersService {
    *     nếu không thanh toán (Mục 4.1 spec)
    */
   async checkout(userId: string, dto: CheckoutDto) {
-    const cart = await this.cartService.getCart(userId);
+    const cart = await this.cartService.getCart({ userId });
     if (cart.items.length === 0) {
       throw new BadRequestException('Giỏ hàng đang trống');
     }
@@ -73,7 +73,7 @@ export class OrdersService {
 
     // Xoá các sản phẩm đã đặt khỏi giỏ hàng (Mục 4.1 spec)
     const orderedProductIds = cart.items.map((i) => i.productId);
-    await this.cartService.clearCart(userId, orderedProductIds);
+    await this.cartService.clearCart({ userId }, orderedProductIds);
 
     return createdOrders;
   }
@@ -313,6 +313,15 @@ export class OrdersService {
     await this.transitionStatus(orderId, OrderStatus.PAID, undefined, 'Thanh toán online thành công');
     await this.accountingService.recordOrderPaid(orderId); // Mục 4.4 spec — ghi kế toán tự động
     await this.commissionService.recordCommissionForOrder(orderId); // Mục 4.3 spec — ghi hoa hồng
+  }
+
+  /**
+   * Dùng bởi RefundService khi refund toàn phần được duyệt — chuyển đơn sang
+   * REFUNDED (Mục OrderStatus đã định nghĩa sẵn trạng thái này). Chỉ gọi cho
+   * hoàn tiền TOÀN PHẦN; hoàn tiền một phần không đổi trạng thái tổng của đơn.
+   */
+  async markRefunded(orderId: string, note: string) {
+    await this.transitionStatus(orderId, OrderStatus.REFUNDED, undefined, note);
   }
 
   async markPaymentFailed(orderId: string) {

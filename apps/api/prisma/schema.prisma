@@ -312,7 +312,8 @@ model ProductInventory {
 
 model Cart {
   id        String   @id @default(uuid())
-  userId    String   @unique @map("user_id")
+  userId    String?  @unique @map("user_id")    // NULL nếu là giỏ hàng khách vãng lai (guest)
+  sessionId String?  @unique @map("session_id") // ★ định danh giỏ hàng khách chưa đăng nhập — client tự sinh UUID, lưu localStorage
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

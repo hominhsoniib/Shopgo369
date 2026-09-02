@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { apiFetch } from '../../../lib/api-client';
+import { AuthUser, saveAuth } from '../../../lib/auth-client';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -14,13 +13,15 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     try {
-      const data = await apiFetch<{ accessToken: string; refreshToken: string }>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      router.push('/');
+      const data = await apiFetch<{ accessToken: string; refreshToken: string; user: AuthUser }>(
+        '/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        },
+      );
+      saveAuth(data.accessToken, data.refreshToken, data.user);
+      window.location.href = '/'; // full reload — đảm bảo Header (đã mount sẵn trong layout) đọc lại localStorage đúng trạng thái mới
     } catch (err: any) {
       setError(err.message ?? 'Đăng nhập thất bại');
     }

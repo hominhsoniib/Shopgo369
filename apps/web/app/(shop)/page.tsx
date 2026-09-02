@@ -25,14 +25,6 @@ export default async function ShopHomePage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
-      <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">369 SHOP</h1>
-        <nav className="flex gap-4 text-sm text-gray-600">
-          <a href="/login">Đăng nhập</a>
-          <a href="/seller/dashboard">Kênh người bán</a>
-        </nav>
-      </header>
-
       <section>
         <h2 className="mb-4 text-lg font-semibold">🔥 Sản phẩm nổi bật</h2>
         {products.length === 0 ? (

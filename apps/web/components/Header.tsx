@@ -47,6 +47,12 @@ export default function Header() {
               <a href="/orders" className="hover:text-primary-700">
                 Đơn hàng
               </a>
+              <a
+                href="/member/register-business"
+                className="rounded-lg border border-emerald-600 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100"
+              >
+                🏬 Đăng ký Gian hàng
+              </a>
               {(user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN')) && (
                 <a
                   href="/admin/dashboard"
@@ -55,7 +61,7 @@ export default function Header() {
                   👑 Ban Quản Trị
                 </a>
               )}
-              {user.roles.includes('SELLER') && (
+              {(user.roles.includes('SELLER') || user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN')) && (
                 <a href="/seller/dashboard" className="font-medium text-blue-700 hover:underline">
                   🏬 Kênh người bán
                 </a>
@@ -76,6 +82,9 @@ export default function Header() {
             <>
               <a href="/login" className="hover:text-primary-700">
                 Đăng nhập
+              </a>
+              <a href="/member/register-business" className="font-medium text-emerald-700 hover:underline">
+                🏬 Đăng ký Gian hàng
               </a>
               <a href="/seller/dashboard" className="hover:text-primary-700">
                 Kênh người bán

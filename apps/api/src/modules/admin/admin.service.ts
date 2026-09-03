@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessStatus, MemberStatus, ProductStatus, StoreStatus, PayoutStatus } from '@prisma/client';
 
@@ -31,6 +31,94 @@ export class AdminService {
   }
 
   // ── Quản lý Hộ Kinh Doanh (Business KYC) ──────────────────────────────
+  async getUnattachedMembers() {
+    return this.prisma.member.findMany({
+      where: {
+        business: null,
+      },
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true, phone: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createBusinessByAdmin(dto: {
+    memberId: string;
+    businessName: string;
+    taxCode?: string;
+    ownerIdCard: string;
+    address: string;
+    status?: BusinessStatus;
+  }) {
+    const member = await this.prisma.member.findUnique({
+      where: { id: dto.memberId },
+      include: { business: true },
+    });
+
+    if (!member) throw new NotFoundException('Thành viên không tồn tại');
+    if (member.business) throw new ConflictException('Thành viên này đã đăng ký Hộ kinh doanh');
+
+    return this.prisma.business.create({
+      data: {
+        memberId: dto.memberId,
+        businessName: dto.businessName.trim(),
+        taxCode: dto.taxCode ? dto.taxCode.trim() : null,
+        ownerIdCard: dto.ownerIdCard.trim(),
+        address: dto.address.trim(),
+        status: dto.status || BusinessStatus.VERIFIED,
+      },
+      include: {
+        member: { include: { user: { select: { fullName: true, email: true, phone: true } } } },
+        store: { select: { id: true, name: true, slug: true, status: true } },
+      },
+    });
+  }
+
+  async updateBusinessByAdmin(
+    id: string,
+    dto: {
+      businessName?: string;
+      taxCode?: string;
+      ownerIdCard?: string;
+      address?: string;
+      status?: BusinessStatus;
+    },
+  ) {
+    const business = await this.prisma.business.findUnique({ where: { id } });
+    if (!business) throw new NotFoundException('Hộ kinh doanh không tồn tại');
+
+    return this.prisma.business.update({
+      where: { id },
+      data: {
+        ...(dto.businessName ? { businessName: dto.businessName.trim() } : {}),
+        ...(dto.taxCode !== undefined ? { taxCode: dto.taxCode ? dto.taxCode.trim() : null } : {}),
+        ...(dto.ownerIdCard ? { ownerIdCard: dto.ownerIdCard.trim() } : {}),
+        ...(dto.address ? { address: dto.address.trim() } : {}),
+        ...(dto.status ? { status: dto.status } : {}),
+      },
+      include: {
+        member: { include: { user: { select: { fullName: true, email: true, phone: true } } } },
+        store: { select: { id: true, name: true, slug: true, status: true } },
+      },
+    });
+  }
+
+  async deleteBusinessByAdmin(id: string) {
+    const business = await this.prisma.business.findUnique({ where: { id } });
+    if (!business) throw new NotFoundException('Hộ kinh doanh không tồn tại');
+
+    return this.prisma.business.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        status: BusinessStatus.REJECTED,
+      },
+    });
+  }
+
   async listBusinesses(params: { status?: BusinessStatus; search?: string; page?: number; pageSize?: number }) {
     const page = params.page ?? 1;
     const pageSize = params.pageSize ?? 20;
@@ -81,13 +169,125 @@ export class AdminService {
   }
 
   // ── Quản lý Gian Hàng (Store Management) ───────────────────────────
+  async getUnattachedBusinesses() {
+    return this.prisma.business.findMany({
+      where: {
+        status: BusinessStatus.VERIFIED,
+        store: null,
+      },
+      include: {
+        member: {
+          include: {
+            user: { select: { fullName: true, email: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createStoreByAdmin(dto: {
+    businessId: string;
+    name: string;
+    slug?: string;
+    description?: string;
+    status?: StoreStatus;
+  }) {
+    const business = await this.prisma.business.findUnique({
+      where: { id: dto.businessId },
+      include: { store: true },
+    });
+
+    if (!business) {
+      throw new NotFoundException('Hộ kinh doanh không tồn tại');
+    }
+    if (business.store) {
+      throw new ConflictException('Hộ kinh doanh này đã sở hữu một gian hàng khác');
+    }
+
+    let baseSlug = dto.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (!baseSlug) baseSlug = 'store';
+
+    let slug = baseSlug;
+    const existingSlug = await this.prisma.store.findUnique({ where: { slug } });
+    if (existingSlug) {
+      slug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+
+    return this.prisma.store.create({
+      data: {
+        businessId: dto.businessId,
+        name: dto.name,
+        slug,
+        description: dto.description || null,
+        status: dto.status || StoreStatus.ACTIVE,
+      },
+      include: {
+        business: { include: { member: { include: { user: { select: { fullName: true, email: true } } } } } },
+        _count: { select: { products: true, orders: true } },
+      },
+    });
+  }
+
+  async updateStoreByAdmin(
+    id: string,
+    dto: {
+      name?: string;
+      slug?: string;
+      description?: string;
+      status?: StoreStatus;
+    },
+  ) {
+    const store = await this.prisma.store.findUnique({ where: { id } });
+    if (!store) throw new NotFoundException('Gian hàng không tồn tại');
+
+    // Mã / Slug gian hàng là cố định do hệ thống tự động phát sinh, không cho phép sửa
+    return this.prisma.store.update({
+      where: { id },
+      data: {
+        ...(dto.name ? { name: dto.name } : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.status ? { status: dto.status } : {}),
+      },
+      include: {
+        business: { include: { member: { include: { user: { select: { fullName: true, email: true } } } } } },
+        _count: { select: { products: true, orders: true } },
+      },
+    });
+  }
+
+  async deleteStoreByAdmin(id: string) {
+    const store = await this.prisma.store.findUnique({ where: { id } });
+    if (!store) throw new NotFoundException('Gian hàng không tồn tại');
+
+    return this.prisma.store.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        status: StoreStatus.INACTIVE,
+      },
+    });
+  }
+
   async listStores(params: { status?: StoreStatus; search?: string; page?: number; pageSize?: number }) {
     const page = params.page ?? 1;
     const pageSize = params.pageSize ?? 20;
 
     const where: any = { deletedAt: null };
     if (params.status) where.status = params.status;
-    if (params.search) where.name = { contains: params.search, mode: 'insensitive' };
+    if (params.search) {
+      where.OR = [
+        { name: { contains: params.search, mode: 'insensitive' } },
+        { slug: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.store.findMany({
@@ -131,6 +331,58 @@ export class AdminService {
   }
 
   // ── Kiểm Duyệt Sản Phẩm (Product Moderation) ────────────────────────
+  async createProductByAdmin(dto: {
+    storeId: string;
+    name: string;
+    description?: string;
+    basePrice: number;
+    initialQuantity?: number;
+    imageUrls?: string[];
+  }) {
+    const store = await this.prisma.store.findUnique({ where: { id: dto.storeId } });
+    if (!store) throw new NotFoundException('Gian hàng không tồn tại');
+
+    let slug = dto.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    const existingSlug = await this.prisma.product.findUnique({ where: { slug } });
+    if (existingSlug) {
+      slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+
+    return this.prisma.product.create({
+      data: {
+        storeId: dto.storeId,
+        name: dto.name.trim(),
+        description: dto.description?.trim() || null,
+        basePrice: dto.basePrice,
+        slug,
+        status: ProductStatus.ACTIVE,
+        images: dto.imageUrls && dto.imageUrls.length > 0
+          ? { create: dto.imageUrls.map((url, index) => ({ url, sortOrder: index })) }
+          : undefined,
+        inventory: { create: { quantityOnHand: dto.initialQuantity ?? 50 } },
+      },
+      include: {
+        store: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            business: { select: { id: true, businessName: true } },
+          },
+        },
+        inventory: { select: { quantityOnHand: true, reservedQuantity: true } },
+        images: { select: { url: true, sortOrder: true }, orderBy: { sortOrder: 'asc' } },
+      },
+    });
+  }
+
   async listProducts(params: { status?: ProductStatus; storeId?: string; search?: string; page?: number; pageSize?: number }) {
     const page = params.page ?? 1;
     const pageSize = params.pageSize ?? 20;
@@ -144,7 +396,14 @@ export class AdminService {
       this.prisma.product.findMany({
         where,
         include: {
-          store: { select: { id: true, name: true, slug: true } },
+          store: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              business: { select: { id: true, businessName: true } },
+            },
+          },
           inventory: { select: { quantityOnHand: true, reservedQuantity: true } },
           images: { select: { url: true, sortOrder: true }, orderBy: { sortOrder: 'asc' } },
         },

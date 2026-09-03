@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '../../../../lib/api-client';
 
 interface ProductItem {
@@ -15,11 +16,24 @@ interface ProductItem {
     id: string;
     name: string;
     slug: string;
+    business?: {
+      id: string;
+      businessName: string;
+    };
   };
   inventory: {
     quantityOnHand: number;
     reservedQuantity: number;
   } | null;
+}
+
+interface StoreOption {
+  id: string;
+  name: string;
+  slug: string;
+  business?: {
+    businessName: string;
+  };
 }
 
 interface ApiResponse {
@@ -31,7 +45,9 @@ interface ApiResponse {
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<ProductItem[]>([]);
+  const [stores, setStores] = useState<StoreOption[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [storeFilter, setStoreFilter] = useState<string>('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
@@ -42,6 +58,7 @@ export default function AdminProductsPage() {
   const [uploadMode, setUploadMode] = useState<'FILE' | 'URL'>('FILE');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newForm, setNewForm] = useState({
+    storeId: '',
     name: '',
     basePrice: '150000',
     stock: '100',
@@ -49,6 +66,17 @@ export default function AdminProductsPage() {
     imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop',
   });
   const [submitting, setSubmitting] = useState(false);
+
+  const fetchStores = () => {
+    apiFetch<{ items: StoreOption[] }>('/admin/stores')
+      .then((res) => {
+        setStores(res.items || []);
+        if (res.items && res.items.length > 0) {
+          setNewForm((prev) => ({ ...prev, storeId: prev.storeId || res.items[0].id }));
+        }
+      })
+      .catch(() => {});
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,6 +98,7 @@ export default function AdminProductsPage() {
     setLoading(true);
     const query = new URLSearchParams();
     if (statusFilter) query.set('status', statusFilter);
+    if (storeFilter) query.set('storeId', storeFilter);
     if (search) query.set('search', search);
 
     apiFetch<ApiResponse>(`/admin/products?${query.toString()}`)
@@ -84,8 +113,12 @@ export default function AdminProductsPage() {
   };
 
   useEffect(() => {
+    fetchStores();
+  }, []);
+
+  useEffect(() => {
     fetchProducts();
-  }, [statusFilter]);
+  }, [statusFilter, storeFilter]);
 
   const handleTakedown = async (id: string, name: string) => {
     if (!confirm(`Bạn có chắc muốn GỠ BỎ / ẨN sản phẩm "${name}" khỏi sàn?`)) return;
@@ -116,15 +149,17 @@ export default function AdminProductsPage() {
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newForm.storeId) return alert('Vui lòng chọn Gian Hàng / Hộ Kinh Doanh sở hữu');
     if (!newForm.name.trim()) return alert('Vui lòng nhập tên sản phẩm');
+    
     setSubmitting(true);
     try {
-      // Gọi API tạo sản phẩm cho gian hàng mẫu
-      await apiFetch('/products', {
+      await apiFetch('/admin/products', {
         method: 'POST',
         body: JSON.stringify({
-          name: newForm.name,
-          description: newForm.description || 'Sản phẩm nông sản đặc sản vùng miền chính hãng chất lượng cao',
+          storeId: newForm.storeId,
+          name: newForm.name.trim(),
+          description: newForm.description.trim() || 'Sản phẩm nông sản đặc sản vùng miền chính hãng chất lượng cao',
           basePrice: parseFloat(newForm.basePrice) || 100000,
           initialQuantity: parseInt(newForm.stock, 10) || 50,
           imageUrls: newForm.imageUrl ? [newForm.imageUrl] : [],
@@ -134,6 +169,7 @@ export default function AdminProductsPage() {
       setMsg(`✨ Đã thêm mới sản phẩm thành công: ${newForm.name}`);
       setShowAddModal(false);
       setNewForm({
+        storeId: stores.length > 0 ? stores[0].id : '',
         name: '',
         basePrice: '150000',
         stock: '100',
@@ -155,41 +191,63 @@ export default function AdminProductsPage() {
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Kiểm Duyệt & Quản Lý Sản Phẩm</h1>
           <p className="text-xs text-neutral-500 mt-1">
-            Giám sát danh mục sản phẩm toàn sàn, quản lý hình ảnh & xử lý các sản phẩm vi phạm
+            Giám sát danh mục sản phẩm toàn sàn, quản lý hình ảnh & gán gian hàng sở hữu cho sản phẩm
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-emerald-600/20 transition hover:bg-emerald-700"
+            onClick={() => {
+              fetchStores();
+              setShowAddModal(true);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-emerald-600/20 transition hover:bg-emerald-700 active:scale-95"
           >
             <span>➕ Thêm Sản Phẩm Mới</span>
           </button>
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200/80 bg-white p-3 shadow-sm">
-        <div className="flex flex-wrap gap-1.5">
-          {[
-            { id: '', label: 'Tất cả sản phẩm' },
-            { id: 'ACTIVE', label: '🟢 Đang đăng bán' },
-            { id: 'ARCHIVED', label: '🔴 Đã bị ẩn / Khóa' },
-            { id: 'OUT_OF_STOCK', label: '🟡 Hết hàng' },
-          ].map((st) => (
-            <button
-              key={st.id}
-              onClick={() => setStatusFilter(st.id)}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-medium transition ${
-                statusFilter === st.id
-                  ? 'bg-neutral-900 text-white shadow-sm'
-                  : 'text-neutral-600 hover:bg-neutral-100'
-              }`}
+      {/* Filter Tabs & Store Selector */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200/80 bg-white p-3.5 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status Filter */}
+          <div className="flex flex-wrap gap-1">
+            {[
+              { id: '', label: 'Tất cả sản phẩm' },
+              { id: 'ACTIVE', label: '🟢 Đang bán' },
+              { id: 'ARCHIVED', label: '🔴 Đã gỡ vi phạm' },
+              { id: 'OUT_OF_STOCK', label: '🟡 Hết hàng' },
+            ].map((st) => (
+              <button
+                key={st.id}
+                onClick={() => setStatusFilter(st.id)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                  statusFilter === st.id
+                    ? 'bg-neutral-900 text-white shadow-sm'
+                    : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                {st.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Store Filter */}
+          {stores.length > 0 && (
+            <select
+              value={storeFilter}
+              onChange={(e) => setStoreFilter(e.target.value)}
+              className="rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-800 focus:border-emerald-500 focus:outline-none"
             >
-              {st.label}
-            </button>
-          ))}
+              <option value="">🏪 Tất cả gian hàng ({stores.length})</option>
+              {stores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.business?.businessName || 'HKD'})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -211,8 +269,27 @@ export default function AdminProductsPage() {
       </div>
 
       {msg && (
-        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3.5 text-xs font-medium text-blue-900">
-          {msg}
+        <div
+          className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl p-3.5 text-xs font-medium ${
+            msg.includes('401') || msg.includes('hết hạn') || msg.includes('Unauthorized') || msg.includes('Lỗi')
+              ? 'bg-rose-50 text-rose-900 border border-rose-200'
+              : 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+          }`}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <span>{msg}</span>
+            {(msg.includes('401') || msg.includes('hết hạn') || msg.includes('Unauthorized')) && (
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1 rounded-lg bg-rose-700 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-800"
+              >
+                🔑 Đăng Nhập Lại Tài Khoản Admin
+              </Link>
+            )}
+          </div>
+          <button onClick={() => setMsg('')} className="font-bold text-neutral-500 hover:text-neutral-800">
+            ✕
+          </button>
         </div>
       )}
 
@@ -223,7 +300,7 @@ export default function AdminProductsPage() {
             <tr>
               <th className="px-4 py-3.5">Hình Ảnh</th>
               <th className="px-4 py-3.5">Tên Sản Phẩm</th>
-              <th className="px-4 py-3.5">Gian Hàng</th>
+              <th className="px-4 py-3.5">Gian Hàng & Hộ Kinh Doanh</th>
               <th className="px-4 py-3.5">Giá Niêm Yết</th>
               <th className="px-4 py-3.5">Tồn Kho / Giữ Chỗ</th>
               <th className="px-4 py-3.5">Trạng Thái</th>
@@ -271,9 +348,14 @@ export default function AdminProductsPage() {
                       <p className="font-mono text-[10px] text-neutral-400 font-normal">slug: {item.slug}</p>
                     </td>
 
-                    {/* Column 3: Store */}
+                    {/* Column 3: Store & Business */}
                     <td className="px-4 py-3">
-                      <p className="font-medium text-neutral-800">{item.store?.name ?? 'ShopGo Official'}</p>
+                      <p className="font-bold text-neutral-900">{item.store?.name ?? 'ShopGo Official'}</p>
+                      {item.store?.business?.businessName && (
+                        <p className="text-[11px] font-medium text-emerald-700">
+                          HKD: {item.store.business.businessName}
+                        </p>
+                      )}
                       <p className="font-mono text-[10px] text-neutral-400">/s/{item.store?.slug}</p>
                     </td>
 
@@ -299,10 +381,10 @@ export default function AdminProductsPage() {
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                           item.status === 'ACTIVE'
-                            ? 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                             : item.status === 'ARCHIVED'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-neutral-100 text-neutral-800'
+                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                            : 'bg-neutral-100 text-neutral-800 border border-neutral-200'
                         }`}
                       >
                         <span
@@ -361,8 +443,8 @@ export default function AdminProductsPage() {
 
       {/* Modal Thêm Sản Phẩm Mới */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between border-b pb-3">
               <h2 className="text-base font-bold text-neutral-900">➕ Thêm Sản Phẩm Mới</h2>
               <button
@@ -373,7 +455,32 @@ export default function AdminProductsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateProduct} className="mt-4 flex flex-col gap-3">
+            <form onSubmit={handleCreateProduct} className="mt-4 flex flex-col gap-4 text-xs">
+              {/* Select Gian Hàng / Hộ Kinh Doanh */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-800 mb-1">
+                  Chọn Gian Hàng / Hộ Kinh Doanh Sở Hữu <span className="text-rose-500">*</span>
+                </label>
+                {stores.length === 0 ? (
+                  <div className="rounded-xl bg-amber-50 p-2.5 text-amber-800 border border-amber-200">
+                    ⚠️ Chưa có Gian Hàng nào hoạt động. Vui lòng tạo Gian Hàng tại mục "Gian hàng" trước!
+                  </div>
+                ) : (
+                  <select
+                    value={newForm.storeId}
+                    onChange={(e) => setNewForm({ ...newForm, storeId: e.target.value })}
+                    className="w-full rounded-xl border border-neutral-300 p-2.5 text-xs text-neutral-900 font-medium focus:border-emerald-500 focus:outline-none"
+                    required
+                  >
+                    {stores.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        🏢 {s.name} — {s.business?.businessName || 'Hộ Kinh Doanh'} (/s/{s.slug})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-1">Tên Sản Phẩm *</label>
                 <input
@@ -518,7 +625,7 @@ export default function AdminProductsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || stores.length === 0}
                   className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-md hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {submitting ? 'Đang tạo...' : 'Tạo Sản Phẩm'}
@@ -531,3 +638,4 @@ export default function AdminProductsPage() {
     </main>
   );
 }
+

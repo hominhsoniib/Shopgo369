@@ -11,6 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/businesses', label: '🏢 Hộ Kinh Doanh' },
     { href: '/admin/stores', label: '🏪 Gian hàng' },
     { href: '/admin/products', label: '📦 Sản phẩm' },
+    { href: '/seller/dashboard', label: '🏬 Kênh Người Bán' },
     { href: '/admin/payouts', label: '💸 Chi trả Hoa hồng' },
     { href: '/admin/reconciliation', label: '⚖️ Đối soát Thanh toán' },
     { href: '/admin/audit-logs', label: '📜 Audit Logs' },
@@ -31,12 +32,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               ShopGo 369 — Ban Quản Trị Hệ Thống
             </span>
           </div>
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 rounded-lg border border-neutral-700/60 bg-neutral-900/80 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-neutral-500 hover:bg-neutral-800 hover:text-white"
-          >
-            <span>← Trở về Sàn ShopGo</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/member/register-business"
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/70 px-3 py-1.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-900/80 hover:text-white"
+            >
+              <span>🏬 Form Đăng Ký Gian Hàng</span>
+            </Link>
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 rounded-lg border border-neutral-700/60 bg-neutral-900/80 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-neutral-500 hover:bg-neutral-800 hover:text-white"
+            >
+              <span>← Trở về Sàn ShopGo</span>
+            </Link>
+          </div>
         </div>
       </header>
 

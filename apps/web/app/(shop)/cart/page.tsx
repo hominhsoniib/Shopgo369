@@ -17,6 +17,15 @@ interface CartItem {
     basePrice: string;
     images: { url: string }[];
     inventory: { quantityOnHand: number; reservedQuantity: number } | null;
+    store?: {
+      id: string;
+      name: string;
+      slug: string;
+      business?: {
+        id: string;
+        businessName: string;
+      };
+    };
   };
 }
 
@@ -77,6 +86,21 @@ export default function CartPage() {
     return <main className="px-4 py-8 text-center text-neutral-400">Đang tải giỏ hàng...</main>;
   }
 
+  // Phân nhóm sản phẩm trong Giỏ hàng theo Gian Hàng (Store)
+  const groupedStores = cart.items.reduce((acc, item) => {
+    const storeId = item.product.store?.id || 'official';
+    if (!acc[storeId]) {
+      acc[storeId] = {
+        store: item.product.store,
+        items: [],
+        subtotal: 0,
+      };
+    }
+    acc[storeId].items.push(item);
+    acc[storeId].subtotal += Number(item.product.basePrice) * item.quantity;
+    return acc;
+  }, {} as Record<string, { store: CartItem['product']['store']; items: CartItem[]; subtotal: number }>);
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="mb-6 font-display text-2xl font-semibold text-neutral-900">Giỏ hàng của bạn</h1>
@@ -93,52 +117,84 @@ export default function CartPage() {
         />
       ) : (
         <>
-          <Card className="divide-y divide-neutral-200 p-0">
-            {cart.items.map((item) => {
-              const available =
-                (item.product.inventory?.quantityOnHand ?? 0) -
-                (item.product.inventory?.reservedQuantity ?? 0);
-              return (
-                <div key={item.productId} className="flex items-center gap-4 p-4">
-                  {item.product.images?.[0] ? (
-                    <img
-                      src={item.product.images[0].url}
-                      alt={item.product.name}
-                      className="h-16 w-16 flex-shrink-0 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="h-16 w-16 flex-shrink-0 rounded-lg bg-neutral-100" />
-                  )}
-                  <div className="flex-1">
-                    <p className="font-medium text-neutral-800">{item.product.name}</p>
-                    <PriceTag value={item.product.basePrice} size="sm" className="mt-0.5 block" />
-                    {available < item.quantity && (
-                      <Badge tone="warning" className="mt-1.5">
-                        Chỉ còn {available} sản phẩm khả dụng
-                      </Badge>
-                    )}
+          <div className="space-y-6">
+            {Object.entries(groupedStores).map(([storeId, group]) => (
+              <Card key={storeId} className="overflow-hidden p-0 border border-neutral-200/90 shadow-sm rounded-2xl">
+                {/* Header Gian Hàng & Hộ Kinh Doanh */}
+                <div className="flex flex-wrap items-center justify-between border-b border-neutral-200/80 bg-neutral-50/90 px-5 py-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🏪</span>
+                    <div>
+                      <a
+                        href={group.store?.slug ? `/s/${group.store.slug}` : '#'}
+                        className="font-bold text-neutral-900 hover:text-emerald-700 transition"
+                      >
+                        {group.store?.name ?? 'ShopGo Official'}
+                      </a>
+                      {group.store?.business?.businessName && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 border border-emerald-200">
+                          Hộ KD: {group.store.business.businessName}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <input
-                    type="number"
-                    min={1}
-                    value={item.quantity}
-                    onChange={(e) => updateQuantity(item.productId, parseInt(e.target.value, 10) || 1)}
-                    className="w-16 rounded-xl border border-neutral-300 px-2 py-1 text-center focus:border-primary-400"
-                  />
-                  <Button variant="ghost" size="sm" onClick={() => removeItem(item.productId)} className="text-danger-600 hover:bg-danger-50">
-                    Xoá
-                  </Button>
+                  <span className="font-mono text-[11px] text-neutral-500">
+                    Tạm tính gian hàng: <strong className="text-neutral-900 font-bold">{group.subtotal.toLocaleString('vi-VN')}đ</strong>
+                  </span>
                 </div>
-              );
-            })}
-          </Card>
 
-          <div className="mt-6 flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-5 py-4">
-            <p className="text-neutral-700">
-              Tạm tính: <PriceTag value={cart.subtotal} size="lg" />
+                {/* Danh sách sản phẩm của Gian hàng này */}
+                <div className="divide-y divide-neutral-100">
+                  {group.items.map((item) => {
+                    const available =
+                      (item.product.inventory?.quantityOnHand ?? 0) -
+                      (item.product.inventory?.reservedQuantity ?? 0);
+                    return (
+                      <div key={item.productId} className="flex items-center gap-4 p-4">
+                        {item.product.images?.[0] ? (
+                          <img
+                            src={item.product.images[0].url}
+                            alt={item.product.name}
+                            className="h-16 w-16 flex-shrink-0 rounded-xl object-cover border border-neutral-200"
+                          />
+                        ) : (
+                          <div className="h-16 w-16 flex-shrink-0 rounded-xl bg-neutral-100 flex items-center justify-center text-lg">
+                            🌾
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <p className="font-medium text-neutral-900 text-sm">{item.product.name}</p>
+                          <PriceTag value={item.product.basePrice} size="sm" className="mt-0.5 block" />
+                          {available < item.quantity && (
+                            <Badge tone="warning" className="mt-1.5">
+                              Chỉ còn {available} sản phẩm khả dụng
+                            </Badge>
+                          )}
+                        </div>
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.quantity}
+                          onChange={(e) => updateQuantity(item.productId, parseInt(e.target.value, 10) || 1)}
+                          className="w-16 rounded-xl border border-neutral-300 px-2 py-1 text-center text-xs font-semibold focus:border-emerald-500 focus:outline-none"
+                        />
+                        <Button variant="ghost" size="sm" onClick={() => removeItem(item.productId)} className="text-rose-600 hover:bg-rose-50">
+                          Xoá
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-6 flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-5 py-4 shadow-sm">
+            <p className="text-neutral-700 text-sm">
+              Tổng cộng toàn giỏ hàng: <PriceTag value={cart.subtotal} size="lg" />
             </p>
             <Button variant="primary" size="lg" onClick={() => router.push('/checkout')}>
-              Thanh toán
+              Thanh toán ngay
             </Button>
           </div>
         </>

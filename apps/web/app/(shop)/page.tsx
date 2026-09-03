@@ -11,6 +11,10 @@ interface Product {
   name: string;
   basePrice: string;
   images?: Array<{ url: string }>;
+  store?: {
+    name: string;
+    slug: string;
+  };
 }
 
 async function getProducts() {
@@ -28,8 +32,10 @@ export default async function ShopHomePage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
       <section>
-        <h1 className="mb-1 font-display text-2xl font-semibold text-neutral-900">Sản phẩm nổi bật</h1>
-        <p className="mb-6 text-sm text-neutral-500">Nông sản sạch từ các hộ kinh doanh trong hệ sinh thái 369</p>
+        <h1 className="mb-1 font-display text-2xl font-semibold text-neutral-900">🌾 Danh Mục Nông Sản & Đặc Sản 369</h1>
+        <p className="mb-6 text-xs text-neutral-500">
+          Khám phá nông sản sạch, đặc sản vùng miền chính hãng từ các Hộ Kinh Doanh trên sàn ShopGo 369
+        </p>
 
         {products.length === 0 ? (
           <EmptyState
@@ -45,6 +51,7 @@ export default async function ShopHomePage() {
                 name={p.name}
                 price={p.basePrice}
                 imageUrl={p.images?.[0]?.url}
+                storeName={p.store?.name}
               />
             ))}
           </div>

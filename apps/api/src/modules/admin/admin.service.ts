@@ -146,6 +146,7 @@ export class AdminService {
         include: {
           store: { select: { id: true, name: true, slug: true } },
           inventory: { select: { quantityOnHand: true, reservedQuantity: true } },
+          images: { select: { url: true, sortOrder: true }, orderBy: { sortOrder: 'asc' } },
         },
         skip: (page - 1) * pageSize,
         take: pageSize,

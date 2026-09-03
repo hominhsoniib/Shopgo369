@@ -166,7 +166,13 @@ async function main() {
     create: { slug: 'dac-san', name: 'Đặc Sản Vùng Miền' },
   });
 
-  // Danh sách 4 Sản phẩm mẫu
+  const catDuocLieu = await prisma.category.upsert({
+    where: { slug: 'duoc-lieu-suc-khoe' },
+    update: {},
+    create: { slug: 'duoc-lieu-suc-khoe', name: 'Dược Liệu & Sức Khỏe' },
+  });
+
+  // Danh sách 12 Sản phẩm mẫu phong phú
   const sampleProducts = [
     {
       slug: 'gao-st25-thuong-hang-5kg',
@@ -203,6 +209,78 @@ async function main() {
       stock: 50,
       imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop',
       catId: catNongSan.id,
+    },
+    {
+      slug: 'ca-phe-arabica-cau-dat-500g',
+      name: 'Cà Phê Arabica Cầu Đất Đà Lạt (Túi 500g)',
+      description: 'Hạt cà phê Arabica rang xay nguyên chất từ độ cao 1.600m Cầu Đất, vị chua thanh hương hoa trái',
+      basePrice: 210000,
+      stock: 120,
+      imageUrl: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=600&auto=format&fit=crop',
+      catId: catDacSan.id,
+    },
+    {
+      slug: 'tieu-den-huu-co-phu-quoc-250g',
+      name: 'Tiêu Đen Hữu Cơ Phú Quốc (Hũ 250g)',
+      description: 'Tiêu đen hạt mẩy cay nồng đặc trưng đảo ngọc Phú Quốc, trồng hướng hữu cơ không hóa chất',
+      basePrice: 135000,
+      stock: 180,
+      imageUrl: 'https://images.unsplash.com/photo-1599940824399-b87987ceb72a?w=600&auto=format&fit=crop',
+      catId: catNongSan.id,
+    },
+    {
+      slug: 'toi-den-ly-son-len-men-500g',
+      name: 'Tỏi Đen Lý Sơn Lên Men Hữu Cơ (Túi 500g)',
+      description: 'Tỏi cô đơn Lý Sơn lên men tự nhiên 60 ngày, dẻo ngọt ngào không cay nồng, giàu chất chống oxy hóa',
+      basePrice: 390000,
+      stock: 90,
+      imageUrl: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&auto=format&fit=crop',
+      catId: catDuocLieu.id,
+    },
+    {
+      slug: 'hat-dieu-rang-muoi-binh-phuoc-500g',
+      name: 'Hạt Điều Rang Muối Bình Phước (Hũ 500g)',
+      description: 'Hạt điều vỏ lụa loại A nguyên hạt rang muối giòn rụm, béo bùi nguyên vị',
+      basePrice: 175000,
+      stock: 220,
+      imageUrl: 'https://images.unsplash.com/photo-1509358271058-acd02cc93898?w=600&auto=format&fit=crop',
+      catId: catDacSan.id,
+    },
+    {
+      slug: 'yen-sao-khanh-hoa-chung-duong-phen-6-hu',
+      name: 'Yến Sào Khánh Hòa Chưng Đường Phèn (Hộp 6 hũ)',
+      description: 'Yến sào đảo thiên nhiên Khánh Hòa nguyên chất 18%, chưng đường phèn thanh mát bổ dưỡng',
+      basePrice: 690000,
+      stock: 60,
+      imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600&auto=format&fit=crop',
+      catId: catDuocLieu.id,
+    },
+    {
+      slug: 'tra-shan-tuyet-co-thu-ha-giang-100g',
+      name: 'Trà Shan Tuyết Cổ Thụ Hà Giang (Hộp 100g)',
+      description: 'Trà búp phủ tuyết trắng từ cây trà cổ thụ hàng trăm năm tuổi đỉnh Tây Côn Lĩnh',
+      basePrice: 380000,
+      stock: 75,
+      imageUrl: 'https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=600&auto=format&fit=crop',
+      catId: catDacSan.id,
+    },
+    {
+      slug: 'nuoc-mam-nhi-phu-quoc-40-do-dam-500ml',
+      name: 'Nước Mắm Nhĩ Phú Quốc 40 Độ Đạm (Chai 500ml)',
+      description: 'Nước mắm nhĩ cá cơm ủ thùng gỗ truyền thống 12 tháng, nước mắm đậm đà màu cánh gián',
+      basePrice: 185000,
+      stock: 140,
+      imageUrl: 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?w=600&auto=format&fit=crop',
+      catId: catDacSan.id,
+    },
+    {
+      slug: 'dong-trung-ha-thao-say-thang-hoa-10g',
+      name: 'Đông Trùng Hạ Thảo Sấy Thăng Hoa (Hộp 10g)',
+      description: 'Đông trùng hạ thảo Cordyceps militaris sấy thăng hoa giữ trọn 99% dưỡng chất và màu vàng tươi',
+      basePrice: 890000,
+      stock: 40,
+      imageUrl: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=600&auto=format&fit=crop',
+      catId: catDuocLieu.id,
     },
   ];
 

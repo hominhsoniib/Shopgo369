@@ -7,6 +7,7 @@ import Button from '../../../../components/ui/Button';
 import Badge from '../../../../components/ui/Badge';
 import PriceTag from '../../../../components/ui/PriceTag';
 import EmptyState from '../../../../components/ui/EmptyState';
+import { SAMPLE_PRODUCTS } from '../../../../lib/mock-data';
 
 interface ProductDetail {
   id: string;
@@ -30,7 +31,14 @@ export default function ProductDetailPage() {
   useEffect(() => {
     apiFetch<ProductDetail>(`/products/${params.slug}`)
       .then(setProduct)
-      .catch((err) => setError(err.message ?? 'Không tìm thấy sản phẩm'));
+      .catch(() => {
+        const found = SAMPLE_PRODUCTS.find((p) => p.slug === params.slug);
+        if (found) {
+          setProduct(found);
+        } else {
+          setError('Không tìm thấy sản phẩm');
+        }
+      });
   }, [params.slug]);
 
   async function handleAddToCart() {

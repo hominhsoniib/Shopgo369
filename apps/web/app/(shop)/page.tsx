@@ -1,6 +1,7 @@
 import { apiFetch } from '../../lib/api-client';
 import ProductCard from '../../components/ui/ProductCard';
 import EmptyState from '../../components/ui/EmptyState';
+import { SAMPLE_PRODUCTS, SampleProduct } from '../../lib/mock-data';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -17,12 +18,15 @@ interface Product {
   };
 }
 
-async function getProducts() {
+async function getProducts(): Promise<Product[]> {
   try {
     const data = await apiFetch<{ items: Product[] }>('/products', { cache: 'no-store' });
-    return data.items ?? [];
+    if (data && data.items && data.items.length > 0) {
+      return data.items;
+    }
+    return SAMPLE_PRODUCTS;
   } catch {
-    return [] as Product[];
+    return SAMPLE_PRODUCTS;
   }
 }
 
@@ -32,7 +36,7 @@ export default async function ShopHomePage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
       <section>
-        <h1 className="mb-1 font-display text-2xl font-semibold text-neutral-900">🌾 Danh Mục Nông Sản & Đặc Sản 369</h1>
+        <h1 className="mb-1 font-display text-2xl font-bold text-neutral-900">🌾 Danh Mục Nông Sản & Đặc Sản 369</h1>
         <p className="mb-6 text-xs text-neutral-500">
           Khám phá nông sản sạch, đặc sản vùng miền chính hãng từ các Hộ Kinh Doanh trên sàn ShopGo 369
         </p>

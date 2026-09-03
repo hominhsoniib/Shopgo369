@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { apiFetch } from '../../../lib/api-client';
-import { AuthUser, saveAuth } from '../../../lib/auth-client';
+import { AuthUser, clearAuth, saveAuth } from '../../../lib/auth-client';
 import PasswordInput from '../../../components/ui/PasswordInput';
 import Button from '../../../components/ui/Button';
 import Card from '../../../components/ui/Card';
@@ -17,6 +17,7 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    clearAuth(); // Xóa phiên làm việc cũ/hết hạn để gửi request đăng nhập sạch 100%
     try {
       const data = await apiFetch<{ accessToken: string; refreshToken: string; user: AuthUser }>(
         '/auth/login',

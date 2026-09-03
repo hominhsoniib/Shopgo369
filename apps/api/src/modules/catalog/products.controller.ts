@@ -8,11 +8,12 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CatalogService } from './catalog.service';
 
 class CreateProductDto {
-  @IsNotEmpty() name: string;
+  @IsNotEmpty() @IsString() name: string;
   @IsOptional() @IsString() description?: string;
   @IsNumber() @IsPositive() basePrice: number;
   @IsOptional() @IsArray() categoryIds?: string[];
   @IsOptional() @IsInt() @Min(0) initialQuantity?: number;
+  @IsOptional() @IsArray() imageUrls?: string[];
 }
 
 @ApiTags('products')

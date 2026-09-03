@@ -120,23 +120,14 @@ export default function AdminProductsPage() {
     setSubmitting(true);
     try {
       // Gọi API tạo sản phẩm cho gian hàng mẫu
-      const slug = newForm.name
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, '') + '-' + Date.now().toString().slice(-4);
-
       await apiFetch('/products', {
         method: 'POST',
         body: JSON.stringify({
           name: newForm.name,
-          slug,
           description: newForm.description || 'Sản phẩm nông sản đặc sản vùng miền chính hãng chất lượng cao',
           basePrice: parseFloat(newForm.basePrice) || 100000,
-          status: 'ACTIVE',
-          images: newForm.imageUrl ? [{ url: newForm.imageUrl, sortOrder: 0 }] : [],
-          inventory: { quantityOnHand: parseInt(newForm.stock, 10) || 50 },
+          initialQuantity: parseInt(newForm.stock, 10) || 50,
+          imageUrls: newForm.imageUrl ? [newForm.imageUrl] : [],
         }),
       });
 
@@ -151,7 +142,7 @@ export default function AdminProductsPage() {
       });
       fetchProducts();
     } catch (err: any) {
-      alert(err?.message || 'Có lỗi khi tạo sản phẩm');
+      alert(err?.message ? `Lỗi: ${err.message}` : 'Có lỗi khi tạo sản phẩm');
     } finally {
       setSubmitting(false);
     }

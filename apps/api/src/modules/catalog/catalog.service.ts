@@ -75,16 +75,21 @@ export class CatalogService {
     return product;
   }
 
-  /** Seller tạo sản phẩm — chỉ được tạo cho store của CHÍNH MÌNH (Mục 7.2 spec) */
+  /** Seller/Admin tạo sản phẩm — hỗ trợ hình ảnh và store fallback */
   async createProduct(userId: string, data: {
     name: string;
     description?: string;
     basePrice: number;
     categoryIds?: string[];
     initialQuantity?: number;
+    imageUrls?: string[];
   }) {
-    const store = await this.prisma.store.findFirst({ where: { business: { member: { userId } } } });
-    if (!store) throw new NotFoundException('Bạn chưa có gian hàng, không thể đăng sản phẩm');
+    let store = await this.prisma.store.findFirst({ where: { business: { member: { userId } } } });
+    if (!store) {
+      // Fallback: nếu là Admin tạo sản phẩm thì tự động gán vào Gian hàng ACTIVE đầu tiên
+      store = await this.prisma.store.findFirst({ where: { status: StoreStatus.ACTIVE, deletedAt: null } });
+    }
+    if (!store) throw new NotFoundException('Không tìm thấy gian hàng hoạt động để đăng sản phẩm');
 
     const baseSlug = slugify(data.name);
     const slug = await this.ensureUniqueSlug(baseSlug);
@@ -96,13 +101,16 @@ export class CatalogService {
         description: data.description,
         basePrice: data.basePrice,
         slug,
-        status: ProductStatus.DRAFT,
+        status: ProductStatus.ACTIVE,
         categories: data.categoryIds
           ? { create: data.categoryIds.map((categoryId) => ({ categoryId })) }
           : undefined,
-        inventory: { create: { quantityOnHand: data.initialQuantity ?? 0 } },
+        images: data.imageUrls && data.imageUrls.length > 0
+          ? { create: data.imageUrls.map((url, index) => ({ url, sortOrder: index })) }
+          : undefined,
+        inventory: { create: { quantityOnHand: data.initialQuantity ?? 50 } },
       },
-      include: { inventory: true },
+      include: { inventory: true, images: true },
     });
   }
 

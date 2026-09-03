@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../../../lib/api-client';
 import { clearAuth, isLoggedIn } from '../../../../lib/auth-client';
+import PasswordInput from '../../../../components/ui/PasswordInput';
 
 export default function ChangePasswordPage() {
   const [checkedAuth, setCheckedAuth] = useState(false);
@@ -71,8 +72,7 @@ export default function ChangePasswordPage() {
         </p>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <input
-            type="password"
+          <PasswordInput
             placeholder="Mật khẩu hiện tại"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
@@ -80,8 +80,7 @@ export default function ChangePasswordPage() {
             autoComplete="current-password"
             required
           />
-          <input
-            type="password"
+          <PasswordInput
             placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -90,8 +89,7 @@ export default function ChangePasswordPage() {
             autoComplete="new-password"
             required
           />
-          <input
-            type="password"
+          <PasswordInput
             placeholder="Xác nhận mật khẩu mới"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}

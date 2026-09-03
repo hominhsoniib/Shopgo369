@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { apiFetch } from '../../../lib/api-client';
 import { AuthUser, saveAuth } from '../../../lib/auth-client';
+import PasswordInput from '../../../components/ui/PasswordInput';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -62,8 +63,7 @@ export default function RegisterPage() {
           onChange={(e) => setPhone(e.target.value)}
           className="rounded border px-3 py-2"
         />
-        <input
-          type="password"
+        <PasswordInput
           placeholder="Mật khẩu (tối thiểu 8 ký tự)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

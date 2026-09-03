@@ -24,8 +24,22 @@ export interface WebhookVerifyResult {
   success?: boolean;
 }
 
+/** 1 bản ghi giao dịch "phía gateway" dùng để đối soát (Mục 4.2 spec) */
+export interface GatewayTransactionRecord {
+  gatewayTransactionId: string;
+  amount: number;
+  status: 'success' | 'fail';
+}
+
 export interface PaymentGatewayAdapter {
   readonly providerName: string;
   initPayment(params: InitPaymentParams): Promise<InitPaymentResult>;
   verifyWebhook(payload: Record<string, any>, signature?: string): WebhookVerifyResult;
+  /**
+   * Lấy danh sách giao dịch THÀNH CÔNG theo ngày từ phía gateway, để đối soát
+   * với `payment_transactions` của hệ thống (Mục 4.2 spec: "So khớp với báo
+   * cáo giao dịch từ Payment Gateway"). Cổng thật (VNPay/Momo) sẽ gọi API đối
+   * soát chính thức của họ tại đây.
+   */
+  fetchDailyTransactions(date: Date): Promise<GatewayTransactionRecord[]>;
 }

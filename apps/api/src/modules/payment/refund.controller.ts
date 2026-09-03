@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsNotEmpty, IsNumber, IsOptional, IsPositive, IsUUID } from 'class-validator';
 import { RoleName } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuditLogInterceptor } from '../../common/interceptors/audit-log.interceptor';
 import { RefundService } from './refund.service';
 
 class CreateRefundDto {
@@ -21,6 +22,7 @@ type AuthUser = { id: string; roles: RoleName[] };
 @ApiTags('refunds')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(AuditLogInterceptor) // Mục 5.1/7.2 spec: refund/payment là entity nhạy cảm, bắt buộc audit log
 @Controller('refunds')
 export class RefundController {
   constructor(private readonly refundService: RefundService) {}

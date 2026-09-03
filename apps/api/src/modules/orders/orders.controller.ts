@@ -1,15 +1,17 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuditLogInterceptor } from '../../common/interceptors/audit-log.interceptor';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
 
 @ApiTags('orders')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(AuditLogInterceptor) // Mục 5.1/7.2 spec: orders là entity nhạy cảm, bắt buộc audit log
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}

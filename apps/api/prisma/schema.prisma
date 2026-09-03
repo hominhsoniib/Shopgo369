@@ -574,6 +574,32 @@ model Refund {
   @@map("refunds")
 }
 
+/// Đối soát thanh toán hàng ngày (Mục 4.2, 5.3 spec: payment_reconciliation_logs ★ mới).
+/// Mỗi dòng = kết quả so khớp 1 giao dịch giữa hệ thống và Payment Gateway cho 1 ngày cụ thể.
+/// Đây là lớp PHÁT HIỆN/CẢNH BÁO — không chặn việc ghi sổ kế toán real-time đã có sẵn
+/// (Mục 3.6.1, đã implement) — xem ghi chú thiết kế trong reconciliation.service.ts.
+model PaymentReconciliationLog {
+  id                   String                    @id @default(uuid())
+  reconciliationDate   DateTime                  @map("reconciliation_date") @db.Date
+  gatewayProvider      String                    @map("gateway_provider")
+  gatewayTransactionId String?                   @map("gateway_transaction_id")
+  systemAmount         Decimal?                  @db.Decimal(14, 2) @map("system_amount")
+  gatewayAmount        Decimal?                  @db.Decimal(14, 2) @map("gateway_amount")
+  matchStatus          ReconciliationMatchStatus @map("match_status")
+  note                 String?
+  createdAt            DateTime                  @default(now()) @map("created_at")
+
+  @@index([reconciliationDate])
+  @@map("payment_reconciliation_logs")
+}
+
+enum ReconciliationMatchStatus {
+  MATCHED             // khớp 100% giữa hệ thống và gateway
+  MISMATCH_AMOUNT     // có ở cả 2 bên nhưng số tiền lệch nhau
+  MISSING_IN_GATEWAY  // có trong hệ thống, KHÔNG có ở gateway — "giao dịch treo"
+  MISSING_IN_SYSTEM   // có ở gateway, KHÔNG có trong hệ thống — "thất thoát doanh thu"
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PHASE 3 — SELLER CENTER: Promotions (khuyến mãi)

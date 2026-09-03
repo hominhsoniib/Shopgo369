@@ -53,14 +53,12 @@ export default function Header() {
               >
                 🏬 Đăng ký Gian hàng
               </a>
-              {(user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN')) && (
-                <a
-                  href="/admin/dashboard"
-                  className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-sm transition hover:bg-red-700"
-                >
-                  👑 Ban Quản Trị
-                </a>
-              )}
+              <a
+                href="/admin/dashboard"
+                className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-sm transition hover:bg-red-700"
+              >
+                👑 Ban Quản Trị
+              </a>
               {(user.roles.includes('SELLER') || user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN')) && (
                 <a href="/seller/dashboard" className="font-medium text-blue-700 hover:underline">
                   🏬 Kênh người bán

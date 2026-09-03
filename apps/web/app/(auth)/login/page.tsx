@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { apiFetch } from '../../../lib/api-client';
 import { AuthUser, saveAuth } from '../../../lib/auth-client';
 import PasswordInput from '../../../components/ui/PasswordInput';
+import Button from '../../../components/ui/Button';
+import Card from '../../../components/ui/Card';
+
+const inputClass = 'rounded-xl border border-neutral-300 px-3 py-2 focus:border-primary-400 focus:outline-none';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -30,31 +34,33 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
-      <h1 className="mb-6 text-xl font-bold">Đăng nhập 369</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="rounded border px-3 py-2"
-          required
-        />
-        <PasswordInput
-          placeholder="Mật khẩu"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="rounded border px-3 py-2"
-          required
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button type="submit" className="rounded bg-red-600 py-2 font-medium text-white">
-          Đăng nhập
-        </button>
-      </form>
-      <p className="mt-4 text-center text-sm text-gray-500">
-        Chưa có tài khoản? <a href="/register" className="text-red-600">Đăng ký</a>
-      </p>
+      <Card className="p-6">
+        <h1 className="mb-6 font-display text-2xl font-semibold text-neutral-900">Đăng nhập 369</h1>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputClass}
+            required
+          />
+          <PasswordInput
+            placeholder="Mật khẩu"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={inputClass}
+            required
+          />
+          {error && <p className="text-sm text-danger-600">{error}</p>}
+          <Button type="submit" variant="primary" size="lg">
+            Đăng nhập
+          </Button>
+        </form>
+        <p className="mt-4 text-center text-sm text-neutral-500">
+          Chưa có tài khoản? <a href="/register" className="text-primary-700 hover:underline">Đăng ký</a>
+        </p>
+      </Card>
     </main>
   );
 }

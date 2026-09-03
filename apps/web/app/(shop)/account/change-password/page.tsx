@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '../../../../lib/api-client';
 import { clearAuth, isLoggedIn } from '../../../../lib/auth-client';
 import PasswordInput from '../../../../components/ui/PasswordInput';
+import Button from '../../../../components/ui/Button';
+import Card from '../../../../components/ui/Card';
+
+const inputClass = 'rounded-xl border border-neutral-300 px-3 py-2 focus:border-primary-400 focus:outline-none';
 
 export default function ChangePasswordPage() {
   const [checkedAuth, setCheckedAuth] = useState(false);
@@ -59,55 +63,53 @@ export default function ChangePasswordPage() {
   }
 
   if (!checkedAuth) {
-    return <main className="px-4 py-8 text-center text-gray-400">Đang tải...</main>;
+    return <main className="px-4 py-8 text-center text-neutral-400">Đang tải...</main>;
   }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
-      <h1 className="mb-6 text-xl font-bold">Đổi mật khẩu</h1>
+      <Card className="p-6">
+        <h1 className="mb-6 font-display text-2xl font-semibold text-neutral-900">Đổi mật khẩu</h1>
 
-      {success ? (
-        <p className="rounded bg-green-50 p-3 text-sm text-green-700">
-          Đổi mật khẩu thành công. Đang chuyển tới trang đăng nhập...
-        </p>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <PasswordInput
-            placeholder="Mật khẩu hiện tại"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            className="rounded border px-3 py-2"
-            autoComplete="current-password"
-            required
-          />
-          <PasswordInput
-            placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            minLength={8}
-            className="rounded border px-3 py-2"
-            autoComplete="new-password"
-            required
-          />
-          <PasswordInput
-            placeholder="Xác nhận mật khẩu mới"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            minLength={8}
-            className="rounded border px-3 py-2"
-            autoComplete="new-password"
-            required
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded bg-red-600 py-2 font-medium text-white disabled:opacity-60"
-          >
-            {submitting ? 'Đang xử lý...' : 'Đổi mật khẩu'}
-          </button>
-        </form>
-      )}
+        {success ? (
+          <p className="rounded-xl bg-primary-50 p-3 text-sm text-primary-700">
+            Đổi mật khẩu thành công. Đang chuyển tới trang đăng nhập...
+          </p>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <PasswordInput
+              placeholder="Mật khẩu hiện tại"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className={inputClass}
+              autoComplete="current-password"
+              required
+            />
+            <PasswordInput
+              placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              minLength={8}
+              className={inputClass}
+              autoComplete="new-password"
+              required
+            />
+            <PasswordInput
+              placeholder="Xác nhận mật khẩu mới"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              minLength={8}
+              className={inputClass}
+              autoComplete="new-password"
+              required
+            />
+            {error && <p className="text-sm text-danger-600">{error}</p>}
+            <Button type="submit" variant="primary" size="lg" disabled={submitting}>
+              {submitting ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+            </Button>
+          </form>
+        )}
+      </Card>
     </main>
   );
 }

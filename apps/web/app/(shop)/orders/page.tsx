@@ -1,6 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Card from '../../../components/ui/Card';
+import Badge from '../../../components/ui/Badge';
+import PriceTag from '../../../components/ui/PriceTag';
+import EmptyState from '../../../components/ui/EmptyState';
+import Button from '../../../components/ui/Button';
 import { apiFetch } from '../../../lib/api-client';
 
 interface OrderSummary {
@@ -27,6 +32,14 @@ const STATUS_LABEL: Record<string, string> = {
   REFUNDED: 'Đã hoàn tiền',
 };
 
+/** Ánh xạ trạng thái đơn hàng sang tone màu Badge — nhất quán với ý nghĩa: đang xử lý (primary), chờ (warning), lỗi/huỷ (danger), đã hoàn tiền (secondary). */
+function statusTone(status: string): 'primary' | 'warning' | 'danger' | 'secondary' {
+  if (['CANCELLED', 'PAYMENT_FAILED'].includes(status)) return 'danger';
+  if (['PENDING_PAYMENT', 'PENDING_CONFIRM', 'PACKED'].includes(status)) return 'warning';
+  if (status === 'REFUNDED') return 'secondary';
+  return 'primary';
+}
+
 export default function OrdersListPage() {
   const [orders, setOrders] = useState<OrderSummary[] | null>(null);
   const [error, setError] = useState('');
@@ -39,47 +52,52 @@ export default function OrdersListPage() {
 
   if (error) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-8 text-center">
-        <p className="text-gray-500">{error}</p>
-        <a href="/login" className="mt-4 inline-block text-red-600">
-          Đăng nhập
-        </a>
+      <main className="mx-auto max-w-2xl px-4 py-10">
+        <EmptyState
+          title="Không tải được danh sách đơn hàng"
+          description={error}
+          action={
+            <Button variant="primary" onClick={() => (window.location.href = '/login')}>
+              Đăng nhập
+            </Button>
+          }
+        />
       </main>
     );
   }
   if (!orders) {
-    return <main className="px-4 py-8 text-center text-gray-400">Đang tải...</main>;
+    return <main className="px-4 py-8 text-center text-neutral-400">Đang tải...</main>;
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-xl font-bold">Đơn hàng của bạn</h1>
+    <main className="mx-auto max-w-3xl px-4 py-10">
+      <h1 className="mb-6 font-display text-2xl font-semibold text-neutral-900">Đơn hàng của bạn</h1>
 
       {orders.length === 0 ? (
-        <p className="text-gray-500">Bạn chưa có đơn hàng nào.</p>
+        <EmptyState title="Bạn chưa có đơn hàng nào" description="Đơn hàng sẽ xuất hiện ở đây sau khi bạn đặt mua." />
       ) : (
         <div className="flex flex-col gap-3">
           {orders.map((o) => (
-            <a
-              key={o.id}
-              href={`/orders/${o.id}`}
-              className="flex items-center justify-between rounded-lg border p-4 transition hover:shadow-md"
-            >
-              <div>
-                <p className="font-medium">
-                  #{o.orderCode} — {o.store?.name}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {o.items.map((i) => `${i.productName} x${i.quantity}`).join(', ')}
-                </p>
-                <p className="mt-1 text-xs text-gray-400">
-                  {new Date(o.createdAt).toLocaleString('vi-VN')}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium text-blue-600">{STATUS_LABEL[o.status] ?? o.status}</p>
-                <p className="font-semibold text-red-600">{Number(o.totalAmount).toLocaleString('vi-VN')}đ</p>
-              </div>
+            <a key={o.id} href={`/orders/${o.id}`}>
+              <Card hoverable className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-neutral-800">
+                    #{o.orderCode} — {o.store?.name}
+                  </p>
+                  <p className="text-sm text-neutral-500">
+                    {o.items.map((i) => `${i.productName} x${i.quantity}`).join(', ')}
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    {new Date(o.createdAt).toLocaleString('vi-VN')}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <Badge tone={statusTone(o.status)} className="mb-1.5">
+                    {STATUS_LABEL[o.status] ?? o.status}
+                  </Badge>
+                  <PriceTag value={o.totalAmount} className="block" />
+                </div>
+              </Card>
             </a>
           ))}
         </div>

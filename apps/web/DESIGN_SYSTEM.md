@@ -43,10 +43,15 @@ Nạp qua `next/font/google` trong `app/layout.tsx` — tự tối ưu, cache lo
 - `app/(shop)/cart/page.tsx` (giỏ hàng) — `Card`, `Button`, `Badge`, `PriceTag`, `EmptyState`
 - `app/(shop)/checkout/page.tsx` — `Card`, `Button`, `PriceTag`; radio chọn vận chuyển/thanh toán có viền `primary-400` khi active
 
-## 5. Chưa áp dụng — việc còn lại (phase 3)
+## 5. Đã áp dụng — phase 3 (đơn hàng + xác thực)
 
-- `app/(shop)/orders/*` (danh sách + chi tiết đơn hàng)
-- `app/(auth)/login`, `register`, `app/(shop)/account/change-password`
-- `app/(seller)/*`, `app/(admin)/*`, `app/(member)/*`
+- `app/(shop)/orders/page.tsx`, `orders/[id]/page.tsx` — `Card`, `Badge` (map trạng thái đơn → tone màu), `PriceTag`, `EmptyState`
+- `app/(auth)/login`, `register`, `app/(shop)/account/change-password` — bọc `Card`, dùng `Button`, input theo token `primary-400`
 
-Gợi ý thứ tự tiếp theo: trang đơn hàng (cùng luồng mua hàng, khách hàng thấy ngay sau checkout) trước, rồi tới seller/admin.
+## 6. Chưa áp dụng — việc còn lại (phase 4)
+
+- `app/(seller)/*` (dashboard, đơn hàng, sản phẩm, khuyến mãi)
+- `app/(admin)/*` (dashboard quản trị)
+- `app/(member)/*` (hồ sơ thành viên)
+
+Đây là khu vực nội bộ (người bán/admin), ưu tiên thấp hơn storefront khách hàng vì ít người dùng hơn nhưng phức tạp hơn (nhiều bảng dữ liệu, biểu đồ).

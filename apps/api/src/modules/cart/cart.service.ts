@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus, StoreStatus } from '@prisma/client';
 
 /**
  * Định danh chủ sở hữu giỏ hàng — CHÍNH XÁC 1 trong 2 trường được điền:
@@ -68,10 +68,15 @@ export class CartService {
 
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
-      include: { inventory: true },
+      include: { inventory: true, store: true },
     });
     if (!product || product.status !== ProductStatus.ACTIVE) {
       throw new NotFoundException('Sản phẩm không tồn tại hoặc đã ngừng bán');
+    }
+    // Chặn thêm sản phẩm của gian hàng đã bị admin khoá/tạm ngưng — an toàn
+    // thứ 2 phòng trường hợp gọi thẳng API bỏ qua trang danh sách đã lọc.
+    if (product.store.status !== StoreStatus.ACTIVE) {
+      throw new BadRequestException('Gian hàng của sản phẩm này hiện không hoạt động');
     }
 
     const cart = await this.getOrCreateCart(identity);

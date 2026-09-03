@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
+import { OrderStatus, PaymentMethod, PaymentStatus, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { ShippingService } from '../shipping/shipping.service';
@@ -85,6 +85,16 @@ export class OrdersService {
     shippingFee: number,
   ) {
     const storeId = (items[0] as any).product.storeId;
+    const storeStatus = (items[0] as any).product.store?.status;
+    // Lớp an toàn cuối cùng trước khi tạo đơn/trừ kho/thu tiền — chặn checkout
+    // nếu gian hàng đã bị admin khoá/tạm ngưng sau khi khách đã thêm vào giỏ
+    // (2 lớp trước — catalog listing, cart addItem — đã chặn nhưng giỏ hàng có
+    // thể được thêm TRƯỚC KHI gian hàng bị khoá, nên vẫn cần check lại ở đây).
+    if (storeStatus && storeStatus !== StoreStatus.ACTIVE) {
+      throw new BadRequestException(
+        'Gian hàng của một hoặc nhiều sản phẩm trong giỏ hàng hiện không hoạt động — vui lòng xoá khỏi giỏ hàng',
+      );
+    }
     const subtotal = items.reduce((sum, i) => sum + Number(i.product.basePrice) * i.quantity, 0);
 
     // ── Phase 3: áp mã khuyến mãi (nếu có) ──────────────────────────────

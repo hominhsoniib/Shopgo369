@@ -25,8 +25,26 @@ Spec viết "chỉ ghi kế toán sau khi đối soát khớp", nhưng Mục 3.6
 
 **Giới hạn của Mock gateway:** vì Mock không có sổ giao dịch độc lập thật (nó chính là nơi hệ thống tự ghi nhận), `fetchDailyTransactions()` của Mock chỉ echo lại dữ liệu hệ thống đã có → đối soát với Mock **luôn khớp 100%**, không phát hiện được lỗi thật. Giá trị thật của tính năng này chỉ phát huy khi tích hợp gateway thật (VNPay/Momo) — việc đó đã được quyết định để lại giai đoạn sau.
 
-## 3. Việc cần làm trên máy thật
+## 4. Quản lý gian hàng cho Admin (bổ sung sau — Mục 5.4 spec: `/admin/stores`)
 
+Audit ban đầu bỏ sót: admin hoàn toàn không có quyền quản lý gian hàng nào (chỉ seller tự quản lý store của mình). Đã bổ sung:
+
+- `GET /admin/stores?status=&search=&page=` — danh sách toàn bộ gian hàng, không giới hạn theo chủ sở hữu
+- `GET /admin/stores/:id` — chi tiết 1 gian hàng
+- `PATCH /admin/stores/:id/suspend` — khoá gian hàng
+- `PATCH /admin/stores/:id/reactivate` — mở lại
+
+**Quan trọng:** `StoreStatus.SUSPENDED` đã tồn tại sẵn trong schema từ trước nhưng **chưa từng được dùng ở đâu** — nếu chỉ thêm nút khoá mà không chặn hiển thị thì sản phẩm của gian hàng bị khoá vẫn bán bình thường. Đã bổ sung enforce ở **3 lớp** (đúng nguyên tắc Mục 7.2 "RBAC enforce ở CẢ API layer LẪN query layer", tương tự cách ownership check đã làm ở nơi khác):
+1. `CatalogService.listProducts`/`getBySlug` — ẩn khỏi trang Shop công khai
+2. `StoresService.findBySlug` — ẩn trang gian hàng công khai
+3. `CartService.addItem` — chặn thêm sản phẩm của gian hàng bị khoá vào giỏ
+4. `OrdersService.createOrderForStore` — lớp an toàn cuối, chặn checkout nếu giỏ hàng có sản phẩm của gian hàng đã bị khoá SAU KHI đã thêm vào giỏ (trước khi tạo đơn/trừ tiền)
+
+Đơn hàng **đang xử lý** của gian hàng bị khoá KHÔNG bị huỷ tự động — seller vẫn phải hoàn tất giao hàng cho đơn đã đặt trước đó.
+
+Cả 2 endpoint mutation (`suspend`, `reactivate`) đã có audit log tự động qua `AuditLogInterceptor` gắn ở cấp `AdminController`.
+
+## 5. Việc cần làm trên máy thật
 ```powershell
 cd "D:\HTX 369\ShopGo\369-platform\apps\api"
 pnpm prisma:generate

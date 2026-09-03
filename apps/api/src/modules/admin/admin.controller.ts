@@ -1,8 +1,10 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { StoreStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AuditLogInterceptor } from '../../common/interceptors/audit-log.interceptor';
 import { AdminService } from './admin.service';
 import { ReconciliationService } from '../payment/reconciliation.service';
 
@@ -10,6 +12,7 @@ import { ReconciliationService } from '../payment/reconciliation.service';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'SUPER_ADMIN')
+@UseInterceptors(AuditLogInterceptor) // Mục 5.1/7.2 spec: thao tác admin (khoá/mở gian hàng...) là nhạy cảm
 @Controller('admin')
 export class AdminController {
   constructor(
@@ -20,6 +23,31 @@ export class AdminController {
   @Get('dashboard/overview')
   getOverview() {
     return this.adminService.getOverview();
+  }
+
+  // ── Quản lý gian hàng (Mục 5.4 spec) ──────────────────────────────
+  @Get('stores')
+  listStores(
+    @Query('status') status?: StoreStatus,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.adminService.listStores({ status, search, page: page ? parseInt(page, 10) : undefined });
+  }
+
+  @Get('stores/:id')
+  getStoreDetail(@Param('id') id: string) {
+    return this.adminService.getStoreDetail(id);
+  }
+
+  @Patch('stores/:id/suspend')
+  suspendStore(@Param('id') id: string) {
+    return this.adminService.suspendStore(id);
+  }
+
+  @Patch('stores/:id/reactivate')
+  reactivateStore(@Param('id') id: string) {
+    return this.adminService.reactivateStore(id);
   }
 
   /**

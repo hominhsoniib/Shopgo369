@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus, StoreStatus } from '@prisma/client';
 
 function slugify(text: string): string {
   return text
@@ -35,7 +35,11 @@ export class CatalogService {
     const page = params.page ?? 1;
     const pageSize = params.pageSize ?? 20;
 
-    const where: any = { status: ProductStatus.ACTIVE, deletedAt: null };
+    const where: any = {
+      status: ProductStatus.ACTIVE,
+      deletedAt: null,
+      store: { status: StoreStatus.ACTIVE }, // ẩn sản phẩm của gian hàng bị admin khoá/tạm ngưng
+    };
     if (params.search) {
       where.name = { contains: params.search, mode: 'insensitive' };
     }
@@ -57,11 +61,18 @@ export class CatalogService {
     return { items, total, page, pageSize };
   }
 
-  getBySlug(slug: string) {
-    return this.prisma.product.findUnique({
+  async getBySlug(slug: string) {
+    const product = await this.prisma.product.findUnique({
       where: { slug },
       include: { images: true, inventory: true, store: true, categories: { include: { category: true } } },
     });
+    // Ẩn sản phẩm nếu gian hàng đã bị admin khoá/tạm ngưng — khách bấm link cũ
+    // (bookmark, kết quả tìm kiếm cache) sẽ không xem được nữa (Mục 5.4 spec:
+    // /admin/stores quản lý trạng thái gian hàng).
+    if (!product || product.store.status !== StoreStatus.ACTIVE) {
+      throw new NotFoundException('Sản phẩm không tồn tại');
+    }
+    return product;
   }
 
   /** Seller tạo sản phẩm — chỉ được tạo cho store của CHÍNH MÌNH (Mục 7.2 spec) */

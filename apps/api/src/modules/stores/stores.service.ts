@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { BusinessStatus } from '@prisma/client';
+import { BusinessStatus, StoreStatus } from '@prisma/client';
 
 function slugify(text: string): string {
   return text
@@ -46,11 +46,16 @@ export class StoresService {
     });
   }
 
-  findBySlug(slug: string) {
-    return this.prisma.store.findUnique({
+  async findBySlug(slug: string) {
+    const store = await this.prisma.store.findUnique({
       where: { slug },
       include: { products: { where: { deletedAt: null } } },
     });
+    // Ẩn trang gian hàng công khai nếu đã bị admin khoá/tạm ngưng
+    if (!store || store.status !== StoreStatus.ACTIVE) {
+      throw new NotFoundException('Gian hàng không tồn tại');
+    }
+    return store;
   }
 
   /** Enforce "Seller chỉ thấy dữ liệu store của mình" — Mục 7.2 spec */

@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../../../lib/api-client';
+import Card from '../../../../components/ui/Card';
+import Badge from '../../../../components/ui/Badge';
+import Button from '../../../../components/ui/Button';
+import PriceTag from '../../../../components/ui/PriceTag';
+import EmptyState from '../../../../components/ui/EmptyState';
 
 interface SellerOrder {
   id: string;
@@ -40,34 +45,38 @@ export default function SellerOrdersPage() {
     load();
   }
 
-  if (error) return <main className="mx-auto max-w-4xl px-4 py-8 text-gray-500">{error}</main>;
+  if (error) return <main className="mx-auto max-w-4xl px-4 py-8 text-neutral-500">{error}</main>;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-6 text-xl font-bold">Đơn hàng của gian hàng</h1>
-      <div className="divide-y rounded border">
-        {orders.length === 0 && <p className="p-4 text-sm text-gray-400">Chưa có đơn hàng nào.</p>}
-        {orders.map((o) => {
-          const action = ACTIONS[o.status];
-          return (
-            <div key={o.id} className="flex items-center justify-between px-4 py-3 text-sm">
-              <div>
-                <p className="font-medium">{o.orderCode} — {o.status}</p>
-                <p className="text-gray-500">
-                  {o.items.map((i) => `${i.productName} x${i.quantity}`).join(', ')}
-                </p>
-                <p className="text-red-600">{Number(o.totalAmount).toLocaleString('vi-VN')}đ</p>
+    <main className="mx-auto max-w-4xl px-4 py-10">
+      <h1 className="mb-6 font-display text-2xl font-semibold text-neutral-900">Đơn hàng của gian hàng</h1>
+      {orders.length === 0 ? (
+        <EmptyState title="Chưa có đơn hàng nào" />
+      ) : (
+        <Card className="divide-y divide-neutral-100 p-0">
+          {orders.map((o) => {
+            const action = ACTIONS[o.status];
+            return (
+              <div key={o.id} className="flex items-center justify-between px-4 py-3 text-sm">
+                <div>
+                  <p className="font-medium text-neutral-800">
+                    {o.orderCode} — <Badge tone="neutral">{o.status}</Badge>
+                  </p>
+                  <p className="mt-1 text-neutral-500">
+                    {o.items.map((i) => `${i.productName} x${i.quantity}`).join(', ')}
+                  </p>
+                  <PriceTag value={o.totalAmount} size="sm" className="mt-0.5 block" />
+                </div>
+                {action && (
+                  <Button variant="primary" size="sm" onClick={() => runAction(o.id, action.endpoint)}>
+                    {action.label}
+                  </Button>
+                )}
               </div>
-              {action && (
-                <button onClick={() => runAction(o.id, action.endpoint)}
-                  className="rounded bg-red-600 px-3 py-1.5 text-xs text-white">
-                  {action.label}
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </Card>
+      )}
     </main>
   );
 }

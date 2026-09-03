@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../../../lib/api-client';
+import Card from '../../../../components/ui/Card';
+import Badge from '../../../../components/ui/Badge';
+import Button from '../../../../components/ui/Button';
+import PriceTag from '../../../../components/ui/PriceTag';
+import EmptyState from '../../../../components/ui/EmptyState';
 
 interface OwnProduct {
   id: string;
@@ -41,37 +46,42 @@ export default function SellerProductsPage() {
     load();
   }
 
-  if (error) return <main className="mx-auto max-w-4xl px-4 py-8 text-gray-500">{error}</main>;
+  if (error) return <main className="mx-auto max-w-4xl px-4 py-8 text-neutral-500">{error}</main>;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-6 text-xl font-bold">Sản phẩm của tôi</h1>
-      <div className="divide-y rounded border">
-        {products.length === 0 && <p className="p-4 text-sm text-gray-400">Chưa có sản phẩm nào.</p>}
-        {products.map((p) => (
-          <div key={p.id} className="flex items-center justify-between px-4 py-3 text-sm">
-            <div>
-              <p className="font-medium">{p.name} — {p.status}</p>
-              <p className="text-gray-500">{Number(p.basePrice).toLocaleString('vi-VN')}đ</p>
-              <div className="mt-1 flex items-center gap-2">
-                <span className="text-gray-400">Tồn kho:</span>
-                <input
-                  type="number"
-                  defaultValue={p.inventory?.quantityOnHand ?? 0}
-                  onBlur={(e) => adjustStock(p.id, parseInt(e.target.value, 10) || 0)}
-                  className="w-20 rounded border px-2 py-1 text-xs"
-                />
-                <span className="text-xs text-gray-400">(đang giữ chỗ {p.inventory?.reservedQuantity ?? 0})</span>
+    <main className="mx-auto max-w-4xl px-4 py-10">
+      <h1 className="mb-6 font-display text-2xl font-semibold text-neutral-900">Sản phẩm của tôi</h1>
+      {products.length === 0 ? (
+        <EmptyState title="Chưa có sản phẩm nào" />
+      ) : (
+        <Card className="divide-y divide-neutral-100 p-0">
+          {products.map((p) => (
+            <div key={p.id} className="flex items-center justify-between px-4 py-3 text-sm">
+              <div>
+                <p className="font-medium text-neutral-800">
+                  {p.name} — <Badge tone="neutral">{p.status}</Badge>
+                </p>
+                <PriceTag value={p.basePrice} size="sm" className="mt-0.5 block" />
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className="text-neutral-400">Tồn kho:</span>
+                  <input
+                    type="number"
+                    defaultValue={p.inventory?.quantityOnHand ?? 0}
+                    onBlur={(e) => adjustStock(p.id, parseInt(e.target.value, 10) || 0)}
+                    className="w-20 rounded-xl border border-neutral-300 px-2 py-1 text-xs focus:border-primary-400 focus:outline-none"
+                  />
+                  <span className="text-xs text-neutral-400">(đang giữ chỗ {p.inventory?.reservedQuantity ?? 0})</span>
+                </div>
               </div>
+              {p.status === 'DRAFT' && (
+                <Button variant="primary" size="sm" onClick={() => publish(p.id)}>
+                  Đăng bán
+                </Button>
+              )}
             </div>
-            {p.status === 'DRAFT' && (
-              <button onClick={() => publish(p.id)} className="rounded bg-red-600 px-3 py-1.5 text-xs text-white">
-                Đăng bán
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </Card>
+      )}
     </main>
   );
 }

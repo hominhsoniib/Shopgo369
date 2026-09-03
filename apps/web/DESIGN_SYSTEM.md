@@ -48,10 +48,12 @@ Nạp qua `next/font/google` trong `app/layout.tsx` — tự tối ưu, cache lo
 - `app/(shop)/orders/page.tsx`, `orders/[id]/page.tsx` — `Card`, `Badge` (map trạng thái đơn → tone màu), `PriceTag`, `EmptyState`
 - `app/(auth)/login`, `register`, `app/(shop)/account/change-password` — bọc `Card`, dùng `Button`, input theo token `primary-400`
 
-## 6. Chưa áp dụng — việc còn lại (phase 4)
+## 6. Đã áp dụng — phase 4 (seller/admin/member)
 
-- `app/(seller)/*` (dashboard, đơn hàng, sản phẩm, khuyến mãi)
-- `app/(admin)/*` (dashboard quản trị)
-- `app/(member)/*` (hồ sơ thành viên)
+- `app/(seller)/seller/dashboard/page.tsx` — `Card`, `Badge`, `PriceTag`, `Button`; **đã xoá khối hiện credential mẫu cứng** (`seller@369.vn`/`SellerMe@369`) vì mật khẩu này đã đổi từ đợt hardening bảo mật, hiển thị ra sẽ đăng nhập thất bại và gây hiểu lầm
+- `app/(seller)/seller/orders/page.tsx`, `products/page.tsx`, `promotions/page.tsx` — `Card`, `Badge`, `Button`, `PriceTag`, `EmptyState`
+- `app/(admin)/admin/dashboard/page.tsx`, `app/(member)/member/profile/page.tsx` — restyle token màu/font (trang còn là placeholder tĩnh, chưa có logic thật)
 
-Đây là khu vực nội bộ (người bán/admin), ưu tiên thấp hơn storefront khách hàng vì ít người dùng hơn nhưng phức tạp hơn (nhiều bảng dữ liệu, biểu đồ).
+## 7. Toàn bộ frontend đã migrate — không còn trang nào dùng style cũ
+
+Tất cả 15 trang trong `apps/web` hiện dùng chung token màu/font + component library. Việc tiếp theo (nếu cần) là xây phần **nội dung thật** cho `admin/dashboard` và `member/profile` (hiện vẫn là placeholder gọi API), không còn là việc thuộc phạm vi Design System nữa.

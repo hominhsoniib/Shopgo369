@@ -1,4 +1,6 @@
 import { apiFetch } from '../../lib/api-client';
+import ProductCard from '../../components/ui/ProductCard';
+import EmptyState from '../../components/ui/EmptyState';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -24,33 +26,26 @@ export default async function ShopHomePage() {
   const products = await getProducts();
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-10">
       <section>
-        <h2 className="mb-4 text-lg font-semibold">🔥 Sản phẩm nổi bật</h2>
+        <h1 className="mb-1 font-display text-2xl font-semibold text-neutral-900">Sản phẩm nổi bật</h1>
+        <p className="mb-6 text-sm text-neutral-500">Nông sản sạch từ các hộ kinh doanh trong hệ sinh thái 369</p>
+
         {products.length === 0 ? (
-          <p className="text-gray-500">Chưa có sản phẩm nào — hãy chạy backend + seed dữ liệu mẫu.</p>
+          <EmptyState
+            title="Chưa có sản phẩm nào"
+            description="Hãy chạy backend và seed dữ liệu mẫu để xem sản phẩm ở đây."
+          />
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
             {products.map((p) => (
-              <a
+              <ProductCard
                 key={p.id}
-                href={`/p/${p.slug}`}
-                className="rounded-lg border p-3 transition hover:shadow-md"
-              >
-                {p.images && p.images[0] ? (
-                  <img
-                    src={p.images[0].url}
-                    alt={p.name}
-                    className="mb-2 aspect-square w-full rounded object-cover"
-                  />
-                ) : (
-                  <div className="mb-2 aspect-square rounded bg-gray-100" />
-                )}
-                <p className="line-clamp-2 text-sm font-medium">{p.name}</p>
-                <p className="text-sm font-semibold text-red-600">
-                  {Number(p.basePrice).toLocaleString('vi-VN')}đ
-                </p>
-              </a>
+                slug={p.slug}
+                name={p.name}
+                price={p.basePrice}
+                imageUrl={p.images?.[0]?.url}
+              />
             ))}
           </div>
         )}

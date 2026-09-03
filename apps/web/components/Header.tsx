@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AuthUser, clearAuth, getCurrentUser } from '../lib/auth-client';
+import Button from './ui/Button';
 
 /**
  * Header dùng chung cho toàn bộ web app — đưa vào app/layout.tsx (root layout)
@@ -29,31 +30,47 @@ export default function Header() {
   }
 
   return (
-    <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-      <a href="/" className="text-2xl font-bold">
-        369 SHOP
-      </a>
-      <nav className="flex items-center gap-4 text-sm text-gray-600">
-        {!mounted ? null : user ? (
-          <>
-            <span className="text-gray-800">
-              Xin chào, <span className="font-medium">{user.fullName}</span>
-            </span>
-            <a href="/cart">Giỏ hàng</a>
-            <a href="/orders">Đơn hàng</a>
-            {user.roles.includes('SELLER') && <a href="/seller/dashboard">Kênh người bán</a>}
-            <a href="/account/change-password">Đổi mật khẩu</a>
-            <button onClick={handleLogout} className="text-red-600 hover:underline">
-              Đăng xuất
-            </button>
-          </>
-        ) : (
-          <>
-            <a href="/login">Đăng nhập</a>
-            <a href="/seller/dashboard">Kênh người bán</a>
-          </>
-        )}
-      </nav>
+    <header className="border-b border-neutral-200 bg-white">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+        <a href="/" className="font-display text-2xl font-semibold text-primary-800">
+          369 SHOP
+        </a>
+        <nav className="flex items-center gap-5 text-sm text-neutral-600">
+          {!mounted ? null : user ? (
+            <>
+              <span className="hidden text-neutral-700 sm:inline">
+                Xin chào, <span className="font-medium text-neutral-900">{user.fullName}</span>
+              </span>
+              <a href="/cart" className="hover:text-primary-700">
+                Giỏ hàng
+              </a>
+              <a href="/orders" className="hover:text-primary-700">
+                Đơn hàng
+              </a>
+              {user.roles.includes('SELLER') && (
+                <a href="/seller/dashboard" className="hover:text-primary-700">
+                  Kênh người bán
+                </a>
+              )}
+              <a href="/account/change-password" className="hover:text-primary-700">
+                Đổi mật khẩu
+              </a>
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="text-danger-600 hover:bg-danger-50">
+                Đăng xuất
+              </Button>
+            </>
+          ) : (
+            <>
+              <a href="/login" className="hover:text-primary-700">
+                Đăng nhập
+              </a>
+              <a href="/seller/dashboard" className="hover:text-primary-700">
+                Kênh người bán
+              </a>
+            </>
+          )}
+        </nav>
+      </div>
     </header>
   );
 }

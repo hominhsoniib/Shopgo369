@@ -3,7 +3,7 @@ chcp 65001 > nul
 title HỆ THỐNG QUẢN LÝ & KHỞI CHẠY 369 PLATFORM (PORTABLE)
 color 0A
 
-:: Đảm bảo luôn lấy thư mục gốc động nơi chứa file chay_app.bat
+:: Đảm bảo lấy chính xác thư mục gốc chứa file chay_app.bat (xử lý tốt đường dẫn chứa dấu cách)
 set "APP_ROOT=%~dp0"
 if "%APP_ROOT:~-1%"=="\" set "APP_ROOT=%APP_ROOT:~0,-1%"
 cd /d "%APP_ROOT%"
@@ -48,11 +48,11 @@ echo 🚀 ĐANG KHỞI CHẠY TẤT CẢ DỊCH VỤ DƯỚI CỬA SỔ RIÊNG..
 echo ================================================================================
 echo.
 echo 1. Đang bật Backend NestJS API (Port 4000)...
-start "ShopGo API (Port 4000)" cmd /k "cd /d "%APP_ROOT%\apps\api" && npm run dev"
+start "ShopGo API (Port 4000)" /D "%APP_ROOT%\apps\api" cmd /k "npm run dev"
 timeout /t 3 > nul
 
 echo 2. Đang bật Frontend Next.js Web (Port 3000)...
-start "ShopGo Web (Port 3000)" cmd /k "cd /d "%APP_ROOT%\apps\web" && npm run dev"
+start "ShopGo Web (Port 3000)" /D "%APP_ROOT%\apps\web" cmd /k "npm run dev"
 
 echo.
 echo ✅ Đã khởi chạy các cửa sổ làm việc độc lập cho Web và API!
@@ -65,7 +65,7 @@ cls
 echo ================================================================================
 echo 🌐 ĐANG KHỞI CHẠY FRONTEND WEB (NEXT.JS - PORT 3000)...
 echo ================================================================================
-start "ShopGo Web (Port 3000)" cmd /k "cd /d "%APP_ROOT%\apps\web" && npm run dev"
+start "ShopGo Web (Port 3000)" /D "%APP_ROOT%\apps\web" cmd /k "npm run dev"
 echo ✅ Đã mở cửa sổ làm việc cho Web Frontend!
 pause
 goto MAIN_MENU
@@ -75,7 +75,7 @@ cls
 echo ================================================================================
 echo ⚙️ ĐANG KHỞI CHẠY BACKEND API (NESTJS - PORT 4000)...
 echo ================================================================================
-start "ShopGo API (Port 4000)" cmd /k "cd /d "%APP_ROOT%\apps\api" && npm run dev"
+start "ShopGo API (Port 4000)" /D "%APP_ROOT%\apps\api" cmd /k "npm run dev"
 echo ✅ Đã mở cửa sổ làm việc cho Backend API!
 pause
 goto MAIN_MENU
@@ -85,7 +85,7 @@ cls
 echo ================================================================================
 echo 🐍 ĐANG KHỞI CHẠY PYTHON ACCOUNTING SERVICE (FASTAPI - PORT 8000)...
 echo ================================================================================
-start "ShopGo Python Accounting (Port 8000)" cmd /k "cd /d "%APP_ROOT%\apps\accounting-service" && uvicorn app.main:app --reload --port 8000"
+start "ShopGo Python Accounting (Port 8000)" /D "%APP_ROOT%\apps\accounting-service" cmd /k "uvicorn app.main:app --reload --port 8000"
 echo ✅ Đã mở cửa sổ làm việc cho Python Service!
 pause
 goto MAIN_MENU
@@ -128,7 +128,7 @@ if "%db_choice%"=="3" (
 )
 if "%db_choice%"=="4" (
     echo Đang khởi chạy Prisma Studio tại http://localhost:5555 ...
-    start "Prisma Studio" cmd /k "cd /d "%APP_ROOT%\apps\api" && npx prisma studio"
+    start "Prisma Studio" /D "%APP_ROOT%\apps\api" cmd /k "npx prisma studio"
     pause
     goto MENU_DB
 )
@@ -195,4 +195,3 @@ echo ✅ Đã dừng toàn bộ các tiến trình Node.js và Python!
 echo.
 pause
 goto MAIN_MENU
-

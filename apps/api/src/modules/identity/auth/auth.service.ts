@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
@@ -6,6 +6,7 @@ import { RoleName } from '@prisma/client';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -63,6 +64,34 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Refresh token không hợp lệ hoặc đã hết hạn');
     }
+  }
+
+  /**
+   * Đổi mật khẩu — yêu cầu xác nhận đúng mật khẩu hiện tại trước khi đổi
+   * (chống trường hợp ai đó chiếm được phiên đăng nhập nhưng không biết mật khẩu gốc).
+   * Không revoke các refresh token cũ đang tồn tại — hệ thống hiện chưa lưu
+   * refresh token phía server (stateless JWT) nên không có gì để thu hồi;
+   * access token cũ (tối đa 15p) vẫn dùng được tới khi hết hạn tự nhiên.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Người dùng không tồn tại');
+    }
+
+    const isValid = await argon2.verify(user.passwordHash, dto.currentPassword);
+    if (!isValid) {
+      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('Mật khẩu mới phải khác mật khẩu hiện tại');
+    }
+
+    const newPasswordHash = await argon2.hash(dto.newPassword);
+    await this.usersService.updatePassword(userId, newPasswordHash);
+
+    return { message: 'Đổi mật khẩu thành công' };
   }
 
   /** Sinh cặp access/refresh token (Mục 7.2 spec: access 15m, refresh 7d) */

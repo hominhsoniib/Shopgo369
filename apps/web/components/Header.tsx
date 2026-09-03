@@ -42,6 +42,7 @@ export default function Header() {
             <a href="/cart">Giỏ hàng</a>
             <a href="/orders">Đơn hàng</a>
             {user.roles.includes('SELLER') && <a href="/seller/dashboard">Kênh người bán</a>}
+            <a href="/account/change-password">Đổi mật khẩu</a>
             <button onClick={handleLogout} className="text-red-600 hover:underline">
               Đăng xuất
             </button>

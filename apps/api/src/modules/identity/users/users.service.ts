@@ -47,6 +47,14 @@ export class UsersService {
     });
   }
 
+  /** Cập nhật passwordHash — dùng cho luồng đổi mật khẩu (đã verify mật khẩu cũ ở AuthService) */
+  updatePassword(userId: string, passwordHash: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+  }
+
   /** Helper: chuẩn hoá danh sách role name từ quan hệ user_roles */
   extractRoleNames(user: { roles: { role: { name: RoleName } }[] }): RoleName[] {
     return user.roles.map((r) => r.role.name);

@@ -37,7 +37,7 @@ export class QueueService implements OnModuleDestroy {
       { orderId },
       {
         delay: delayMs,
-        jobId: `order-timeout:${orderId}`, // idempotent — tránh add trùng job cho cùng 1 order
+        jobId: `order-timeout-${orderId}`, // idempotent — tránh add trùng job cho cùng 1 order (BullMQ 5.81+ cấm dùng dấu ":" trong Custom Job ID)
         removeOnComplete: true,
         removeOnFail: true,
       },

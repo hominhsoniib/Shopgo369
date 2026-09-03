@@ -117,10 +117,15 @@ export class PromotionsService {
    * Gọi bên trong CÙNG transaction Prisma với việc tạo Order.
    */
   async incrementUsageAtomic(tx: Prisma.TransactionClient, promotionId: string): Promise<boolean> {
+    // ★ BUG ĐÃ SỬA (phát hiện khi test Refund API thật): "id" trong schema là
+    // Prisma String (map sang Postgres "text", KHÔNG có @db.Uuid ở bất kỳ model
+    // nào trong toàn schema) — ép kiểu ::uuid gây lỗi "operator does not exist:
+    // text = uuid" khi chạy thật (unit test cũ dùng mock $executeRaw nên không
+    // phát hiện được, vì mock không validate cú pháp SQL thật với Postgres).
     const affectedRows = await tx.$executeRaw`
       UPDATE promotions
       SET used_count = used_count + 1
-      WHERE id = ${promotionId}::uuid
+      WHERE id = ${promotionId}
         AND is_active = true
         AND (usage_limit IS NULL OR used_count < usage_limit)
     `;

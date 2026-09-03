@@ -120,7 +120,7 @@ export class RefundService {
     await this.assertCanProcess(actorUserId, actorRoles, order.id);
 
     const affectedRows = await this.prisma.$executeRaw`
-      UPDATE refunds SET status = 'SUCCESS' WHERE id = ${refundId}::uuid AND status = 'PENDING'
+      UPDATE refunds SET status = 'SUCCESS' WHERE id = ${refundId} AND status = 'PENDING'
     `;
     if (affectedRows === 0) {
       throw new BadRequestException(
@@ -160,7 +160,7 @@ export class RefundService {
     await this.assertCanProcess(actorUserId, actorRoles, order.id);
 
     const affectedRows = await this.prisma.$executeRaw`
-      UPDATE refunds SET status = 'FAILED' WHERE id = ${refundId}::uuid AND status = 'PENDING'
+      UPDATE refunds SET status = 'FAILED' WHERE id = ${refundId} AND status = 'PENDING'
     `;
     if (affectedRows === 0) {
       throw new BadRequestException(

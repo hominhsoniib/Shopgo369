@@ -18,10 +18,20 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ message: 'Lỗi không xác định' }));
-    const msg = Array.isArray(errorData.message)
+
+    // API thật trả lỗi validate dạng LỒNG 2 LỚP qua exception filter chung:
+    // { message: { message: [...], error: 'Bad Request', statusCode } }
+    // — khác với dạng PHẲNG { message: [...] } mà NestJS ValidationPipe trả
+    // mặc định khi không qua filter. Ưu tiên kiểm tra dạng lồng trước.
+    const nested = errorData?.message?.message;
+    const msg = Array.isArray(nested)
+      ? nested.join(', ')
+      : Array.isArray(errorData.message)
       ? errorData.message.join(', ')
       : typeof errorData.message === 'string'
       ? errorData.message
+      : typeof errorData.message?.error === 'string'
+      ? errorData.message.error
       : typeof errorData.error === 'string'
       ? errorData.error
       : `API error: ${res.status}`;

@@ -26,7 +26,16 @@ export default function LoginPage() {
         },
       );
       saveAuth(data.accessToken, data.refreshToken, data.user);
-      window.location.href = '/'; // full reload — đảm bảo Header (đã mount sẵn trong layout) đọc lại localStorage đúng trạng thái mới
+
+      // Điều hướng thông minh theo Vai trò (RBAC) ngay khi Đăng nhập thành công:
+      const roles = data.user.roles || [];
+      if (roles.includes('ADMIN') || roles.includes('SUPER_ADMIN')) {
+        window.location.href = '/admin/dashboard';
+      } else if (roles.includes('SELLER')) {
+        window.location.href = '/seller/dashboard';
+      } else {
+        window.location.href = '/';
+      }
     } catch (err: any) {
       setError(err.message ?? 'Đăng nhập thất bại');
     }

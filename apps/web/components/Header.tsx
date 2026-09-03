@@ -47,9 +47,22 @@ export default function Header() {
               <a href="/orders" className="hover:text-primary-700">
                 Đơn hàng
               </a>
+              {(user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN')) && (
+                <a
+                  href="/admin/dashboard"
+                  className="rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-sm transition hover:bg-red-700"
+                >
+                  👑 Ban Quản Trị
+                </a>
+              )}
               {user.roles.includes('SELLER') && (
-                <a href="/seller/dashboard" className="hover:text-primary-700">
-                  Kênh người bán
+                <a href="/seller/dashboard" className="font-medium text-blue-700 hover:underline">
+                  🏬 Kênh người bán
+                </a>
+              )}
+              {user.roles.includes('MEMBER') && (
+                <a href="/member/profile" className="hover:text-primary-700">
+                  👤 Thành viên
                 </a>
               )}
               <a href="/account/change-password" className="hover:text-primary-700">

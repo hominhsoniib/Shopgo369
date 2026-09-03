@@ -32,19 +32,21 @@ Nạp qua `next/font/google` trong `app/layout.tsx` — tự tối ưu, cache lo
 | `ProductCard` | Thẻ sản phẩm — dùng ở trang chủ, danh mục, tìm kiếm |
 | `EmptyState` | Trạng thái rỗng (giỏ hàng trống, chưa có đơn...) |
 
-## 4. Đã áp dụng (phase 1)
+## 4. Đã áp dụng
 
+**Phase 1:**
 - `Header.tsx` — dùng token màu + `Button`
 - `app/(shop)/page.tsx` (trang chủ) — dùng `ProductCard` + `EmptyState`
 
-## 5. Chưa áp dụng — việc còn lại (phase 2)
+**Phase 2 (luồng mua hàng chính):**
+- `app/(shop)/p/[slug]/page.tsx` (chi tiết sản phẩm) — `Button`, `Badge`, `PriceTag`, `EmptyState`
+- `app/(shop)/cart/page.tsx` (giỏ hàng) — `Card`, `Button`, `Badge`, `PriceTag`, `EmptyState`
+- `app/(shop)/checkout/page.tsx` — `Card`, `Button`, `PriceTag`; radio chọn vận chuyển/thanh toán có viền `primary-400` khi active
 
-Các trang sau vẫn dùng Tailwind mặc định cũ (`red-600`, `gray-500`), cần migrate sang token + component ở trên khi làm phase tiếp theo:
+## 5. Chưa áp dụng — việc còn lại (phase 3)
 
-- `app/(shop)/p/[slug]/page.tsx` (chi tiết sản phẩm)
-- `app/(shop)/cart/page.tsx`, `checkout/page.tsx`, `orders/*`
-- `app/(auth)/login`, `register`
-- `app/(shop)/account/change-password`
+- `app/(shop)/orders/*` (danh sách + chi tiết đơn hàng)
+- `app/(auth)/login`, `register`, `app/(shop)/account/change-password`
 - `app/(seller)/*`, `app/(admin)/*`, `app/(member)/*`
 
-Gợi ý thứ tự ưu tiên: trang sản phẩm + giỏ hàng + checkout trước (luồng mua hàng chính), sau đó tới seller/admin.
+Gợi ý thứ tự tiếp theo: trang đơn hàng (cùng luồng mua hàng, khách hàng thấy ngay sau checkout) trước, rồi tới seller/admin.

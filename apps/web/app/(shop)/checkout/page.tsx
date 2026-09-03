@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '../../../lib/api-client';
+import Card from '../../../components/ui/Card';
+import Button from '../../../components/ui/Button';
+import PriceTag from '../../../components/ui/PriceTag';
 
 interface ShippingMethod {
   id: string;
@@ -10,6 +13,9 @@ interface ShippingMethod {
   baseFee: string;
   estimatedDays: number;
 }
+
+const inputClass =
+  'rounded-xl border border-neutral-300 px-3 py-2 focus:border-primary-400 focus:outline-none';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -83,63 +89,73 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-xl font-bold">Thanh toán</h1>
+    <main className="mx-auto max-w-2xl px-4 py-10">
+      <h1 className="mb-6 font-display text-2xl font-semibold text-neutral-900">Thanh toán</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <section>
-          <h2 className="mb-2 font-semibold">Địa chỉ giao hàng</h2>
+        <Card>
+          <h2 className="mb-3 font-medium text-neutral-800">Địa chỉ giao hàng</h2>
           <div className="grid grid-cols-2 gap-3">
             <input placeholder="Người nhận" required value={form.receiver}
-              onChange={(e) => update('receiver', e.target.value)} className="rounded border px-3 py-2" />
+              onChange={(e) => update('receiver', e.target.value)} className={inputClass} />
             <input placeholder="Số điện thoại" required value={form.phone}
-              onChange={(e) => update('phone', e.target.value)} className="rounded border px-3 py-2" />
+              onChange={(e) => update('phone', e.target.value)} className={inputClass} />
             <input placeholder="Tỉnh/Thành phố" required value={form.province}
-              onChange={(e) => update('province', e.target.value)} className="rounded border px-3 py-2" />
+              onChange={(e) => update('province', e.target.value)} className={inputClass} />
             <input placeholder="Quận/Huyện" required value={form.district}
-              onChange={(e) => update('district', e.target.value)} className="rounded border px-3 py-2" />
+              onChange={(e) => update('district', e.target.value)} className={inputClass} />
             <input placeholder="Phường/Xã" required value={form.ward}
-              onChange={(e) => update('ward', e.target.value)} className="rounded border px-3 py-2" />
+              onChange={(e) => update('ward', e.target.value)} className={inputClass} />
             <input placeholder="Địa chỉ cụ thể" required value={form.addressLine}
-              onChange={(e) => update('addressLine', e.target.value)} className="col-span-2 rounded border px-3 py-2" />
+              onChange={(e) => update('addressLine', e.target.value)} className={`col-span-2 ${inputClass}`} />
           </div>
-        </section>
+        </Card>
 
-        <section>
-          <h2 className="mb-2 font-semibold">Phương thức vận chuyển</h2>
+        <Card>
+          <h2 className="mb-3 font-medium text-neutral-800">Phương thức vận chuyển</h2>
           <div className="flex flex-col gap-2">
             {methods.map((m) => (
-              <label key={m.id} className="flex items-center gap-2 rounded border px-3 py-2">
+              <label
+                key={m.id}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  form.shippingMethodId === m.id ? 'border-primary-400 bg-primary-50' : 'border-neutral-200'
+                }`}
+              >
                 <input type="radio" name="shipping" checked={form.shippingMethodId === m.id}
                   onChange={() => update('shippingMethodId', m.id)} />
-                <span>{m.name} — {Number(m.baseFee).toLocaleString('vi-VN')}đ ({m.estimatedDays} ngày)</span>
+                <span className="text-neutral-700">
+                  {m.name} — <PriceTag value={m.baseFee} size="sm" /> ({m.estimatedDays} ngày)
+                </span>
               </label>
             ))}
           </div>
-        </section>
+        </Card>
 
-        <section>
-          <h2 className="mb-2 font-semibold">Phương thức thanh toán</h2>
+        <Card>
+          <h2 className="mb-3 font-medium text-neutral-800">Phương thức thanh toán</h2>
           <div className="flex gap-3">
-            <label className="flex items-center gap-2 rounded border px-3 py-2">
+            <label className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+              form.paymentMethod === 'ONLINE' ? 'border-primary-400 bg-primary-50' : 'border-neutral-200'
+            }`}>
               <input type="radio" checked={form.paymentMethod === 'ONLINE'}
                 onChange={() => update('paymentMethod', 'ONLINE')} />
               Thanh toán online
             </label>
-            <label className="flex items-center gap-2 rounded border px-3 py-2">
+            <label className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+              form.paymentMethod === 'COD' ? 'border-primary-400 bg-primary-50' : 'border-neutral-200'
+            }`}>
               <input type="radio" checked={form.paymentMethod === 'COD'}
                 onChange={() => update('paymentMethod', 'COD')} />
               Thanh toán khi nhận hàng (COD)
             </label>
           </div>
-        </section>
+        </Card>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger-600">{error}</p>}
 
-        <button type="submit" disabled={submitting}
-          className="rounded bg-red-600 py-3 font-medium text-white disabled:opacity-50">
+        <Button type="submit" variant="primary" size="lg" disabled={submitting} className="w-full">
           {submitting ? 'Đang xử lý...' : 'Đặt hàng'}
-        </button>
+        </Button>
       </form>
     </main>
   );

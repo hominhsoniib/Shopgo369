@@ -87,7 +87,7 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: adminEmail.value },
-    update: {},
+    update: { passwordHash },
     create: {
       email: adminEmail.value,
       fullName: 'Super Admin 369',
@@ -103,13 +103,14 @@ async function main() {
   // Tạo tài khoản Seller mẫu
   const sellerEmail = resolveSeedCredential('SEED_SELLER_EMAIL', 'seller@369.vn', 'Seller mẫu');
   const sellerPassword = resolveSeedCredential('SEED_SELLER_PASSWORD', 'SellerMe@369', 'Seller mẫu');
+  const sellerPasswordHash = await argon2.hash(sellerPassword.value);
   const sellerUser = await prisma.user.upsert({
     where: { email: sellerEmail.value },
-    update: {},
+    update: { passwordHash: sellerPasswordHash },
     create: {
       email: sellerEmail.value,
       fullName: 'Hộ Kinh Doanh Nông Sản 369',
-      passwordHash: await argon2.hash(sellerPassword.value),
+      passwordHash: sellerPasswordHash,
       roles: {
         create: [{ roleId: customerRole.id }, { roleId: sellerRole.id }],
       },

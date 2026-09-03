@@ -109,21 +109,33 @@ do {
             Start-Sleep -Seconds 2
             Write-Host "Dang khoi chay Next.js Web (Port 3000)..." -ForegroundColor Green
             Start-Process cmd -ArgumentList "/k cd /d `"$AppRoot\apps\web`" && npm run dev"
+            Start-Sleep -Seconds 3
+            Write-Host "Dang tu dong mo Trinh duyet Web App (http://localhost:3000)..." -ForegroundColor Cyan
+            Start-Process "http://localhost:3000"
             Read-Host "Nhan Enter de quay lai Menu..."
         }
         "2" {
             Write-Host "Dang khoi chay Next.js Web (Port 3000)..." -ForegroundColor Green
             Start-Process cmd -ArgumentList "/k cd /d `"$AppRoot\apps\web`" && npm run dev"
+            Start-Sleep -Seconds 3
+            Write-Host "Dang tu dong mo Trinh duyet Web App (http://localhost:3000)..." -ForegroundColor Cyan
+            Start-Process "http://localhost:3000"
             Read-Host "Nhan Enter de quay lai Menu..."
         }
         "3" {
             Write-Host "Dang khoi chay NestJS API (Port 4000)..." -ForegroundColor Green
             Start-Process cmd -ArgumentList "/k cd /d `"$AppRoot\apps\api`" && npm run dev"
+            Start-Sleep -Seconds 3
+            Write-Host "Dang tu dong mo Swagger API Docs (http://localhost:4000/api/docs)..." -ForegroundColor Cyan
+            Start-Process "http://localhost:4000/api/docs"
             Read-Host "Nhan Enter de quay lai Menu..."
         }
         "4" {
             Write-Host "Dang khoi chay Python Accounting Service (Port 8000)..." -ForegroundColor Green
             Start-Process cmd -ArgumentList "/k cd /d `"$AppRoot\apps\accounting-service`" && uvicorn app.main:app --reload --port 8000"
+            Start-Sleep -Seconds 3
+            Write-Host "Dang tu dong mo Python FastAPI Docs (http://localhost:8000/docs)..." -ForegroundColor Cyan
+            Start-Process "http://localhost:8000/docs"
             Read-Host "Nhan Enter de quay lai Menu..."
         }
         "5" { Show-DbMenu }

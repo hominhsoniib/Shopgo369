@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { BusinessStatus, MemberStatus, StoreStatus } from '@prisma/client';
+import { BusinessStatus, MemberStatus, ProductStatus, StoreStatus, PayoutStatus } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Dashboard tổng quan Phase 1 — số liệu cơ bản, chưa có doanh thu (Phase 2+) */
+  /** Dashboard tổng quan Phase 1 — số liệu cơ bản */
   async getOverview() {
     const [totalUsers, totalMembers, pendingMembers, totalBusinesses, pendingBusinesses, totalStores, totalProducts] =
       await this.prisma.$transaction([
@@ -30,12 +30,57 @@ export class AdminService {
     };
   }
 
-  // ── Quản lý gian hàng (Mục 5.4 spec: /admin/stores) ──────────────────
-  // Admin là "nhà quản trị tổng thể" — cần toàn quyền xem/khoá/mở lại BẤT KỲ
-  // gian hàng nào, không giới hạn theo business/member sở hữu (khác Seller
-  // chỉ thấy được store của chính mình — Mục 7.2 spec).
+  // ── Quản lý Hộ Kinh Doanh (Business KYC) ──────────────────────────────
+  async listBusinesses(params: { status?: BusinessStatus; search?: string; page?: number; pageSize?: number }) {
+    const page = params.page ?? 1;
+    const pageSize = params.pageSize ?? 20;
 
-  /** Danh sách toàn bộ gian hàng — lọc theo trạng thái/tìm kiếm, có phân trang */
+    const where: any = { deletedAt: null };
+    if (params.status) where.status = params.status;
+    if (params.search) {
+      where.OR = [
+        { businessName: { contains: params.search, mode: 'insensitive' } },
+        { taxCode: { contains: params.search, mode: 'insensitive' } },
+        { ownerIdCard: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.business.findMany({
+        where,
+        include: {
+          member: { include: { user: { select: { fullName: true, email: true, phone: true } } } },
+          store: { select: { id: true, name: true, slug: true, status: true } },
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.business.count({ where }),
+    ]);
+
+    return { items, total, page, pageSize };
+  }
+
+  async verifyBusiness(id: string) {
+    const business = await this.prisma.business.findUnique({ where: { id } });
+    if (!business) throw new NotFoundException('Hộ kinh doanh không tồn tại');
+    return this.prisma.business.update({
+      where: { id },
+      data: { status: BusinessStatus.VERIFIED },
+    });
+  }
+
+  async rejectBusiness(id: string) {
+    const business = await this.prisma.business.findUnique({ where: { id } });
+    if (!business) throw new NotFoundException('Hộ kinh doanh không tồn tại');
+    return this.prisma.business.update({
+      where: { id },
+      data: { status: BusinessStatus.REJECTED },
+    });
+  }
+
+  // ── Quản lý Gian Hàng (Store Management) ───────────────────────────
   async listStores(params: { status?: StoreStatus; search?: string; page?: number; pageSize?: number }) {
     const page = params.page ?? 1;
     const pageSize = params.pageSize ?? 20;
@@ -61,7 +106,6 @@ export class AdminService {
     return { items, total, page, pageSize };
   }
 
-  /** Chi tiết 1 gian hàng — đủ thông tin cho admin ra quyết định khoá/mở */
   async getStoreDetail(id: string) {
     const store = await this.prisma.store.findUnique({
       where: { id },
@@ -74,22 +118,110 @@ export class AdminService {
     return store;
   }
 
-  /**
-   * Khoá gian hàng — tự động ẩn toàn bộ sản phẩm khỏi trang công khai + chặn
-   * thêm giỏ hàng + chặn checkout (đã enforce ở CatalogService, CartService,
-   * OrdersService). KHÔNG huỷ đơn hàng đang xử lý — seller vẫn phải hoàn tất
-   * nghĩa vụ giao hàng cho đơn đã đặt trước khi bị khoá.
-   */
   async suspendStore(id: string) {
     const store = await this.prisma.store.findUnique({ where: { id } });
     if (!store) throw new NotFoundException('Gian hàng không tồn tại');
     return this.prisma.store.update({ where: { id }, data: { status: StoreStatus.SUSPENDED } });
   }
 
-  /** Mở lại gian hàng đã bị khoá */
   async reactivateStore(id: string) {
     const store = await this.prisma.store.findUnique({ where: { id } });
     if (!store) throw new NotFoundException('Gian hàng không tồn tại');
     return this.prisma.store.update({ where: { id }, data: { status: StoreStatus.ACTIVE } });
   }
+
+  // ── Kiểm Duyệt Sản Phẩm (Product Moderation) ────────────────────────
+  async listProducts(params: { status?: ProductStatus; storeId?: string; search?: string; page?: number; pageSize?: number }) {
+    const page = params.page ?? 1;
+    const pageSize = params.pageSize ?? 20;
+
+    const where: any = { deletedAt: null };
+    if (params.status) where.status = params.status;
+    if (params.storeId) where.storeId = params.storeId;
+    if (params.search) where.name = { contains: params.search, mode: 'insensitive' };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        include: {
+          store: { select: { id: true, name: true, slug: true } },
+          inventory: { select: { quantityOnHand: true, reservedQuantity: true } },
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return { items, total, page, pageSize };
+  }
+
+  async updateProductStatus(id: string, status: ProductStatus) {
+    const product = await this.prisma.product.findUnique({ where: { id } });
+    if (!product) throw new NotFoundException('Sản phẩm không tồn tại');
+    return this.prisma.product.update({
+      where: { id },
+      data: { status },
+    });
+  }
+
+  // ── Phê Duyệt Chi Trả Hoa Hồng (Commission Payouts) ─────────────────
+  async listPayouts(params: { status?: PayoutStatus; page?: number; pageSize?: number }) {
+    const page = params.page ?? 1;
+    const pageSize = params.pageSize ?? 20;
+
+    const where: any = {};
+    if (params.status) where.status = params.status;
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.commissionPayout.findMany({
+        where,
+        include: {
+          referrer: { include: { user: { select: { fullName: true, email: true, phone: true } } } },
+          _count: { select: { transactions: true } },
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.commissionPayout.count({ where }),
+    ]);
+
+    return { items, total, page, pageSize };
+  }
+
+  async confirmPayoutPaid(id: string) {
+    const payout = await this.prisma.commissionPayout.findUnique({ where: { id } });
+    if (!payout) throw new NotFoundException('Đợt chi trả hoa hồng không tồn tại');
+    return this.prisma.$transaction([
+      this.prisma.commissionPayout.update({
+        where: { id },
+        data: { status: PayoutStatus.PAID, paidAt: new Date() },
+      }),
+      this.prisma.commissionTransaction.updateMany({
+        where: { payoutId: id },
+        data: { status: 'PAID' as any },
+      }),
+    ]);
+  }
+
+  // ── Nhật Ký Thao Tác Hệ Thống (Audit Logs) ─────────────────────────
+  async listAuditLogs(params: { page?: number; pageSize?: number }) {
+    const page = params.page ?? 1;
+    const pageSize = params.pageSize ?? 30;
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.auditLog.findMany({
+        include: { user: { select: { fullName: true, email: true } } },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.auditLog.count(),
+    ]);
+
+    return { items, total, page, pageSize };
+  }
 }
+

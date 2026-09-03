@@ -1,6 +1,6 @@
-import { Controller, Get, Param, Patch, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { StoreStatus } from '@prisma/client';
+import { BusinessStatus, ProductStatus, StoreStatus, PayoutStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -25,7 +25,27 @@ export class AdminController {
     return this.adminService.getOverview();
   }
 
-  // ── Quản lý gian hàng (Mục 5.4 spec) ──────────────────────────────
+  // ── Quản lý Hộ Kinh Doanh (Business KYC) ──────────────────────────────
+  @Get('businesses')
+  listBusinesses(
+    @Query('status') status?: BusinessStatus,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.adminService.listBusinesses({ status, search, page: page ? parseInt(page, 10) : undefined });
+  }
+
+  @Patch('businesses/:id/verify')
+  verifyBusiness(@Param('id') id: string) {
+    return this.adminService.verifyBusiness(id);
+  }
+
+  @Patch('businesses/:id/reject')
+  rejectBusiness(@Param('id') id: string) {
+    return this.adminService.rejectBusiness(id);
+  }
+
+  // ── Quản lý Gian Hàng (Store Management) ───────────────────────────
   @Get('stores')
   listStores(
     @Query('status') status?: StoreStatus,
@@ -50,12 +70,46 @@ export class AdminController {
     return this.adminService.reactivateStore(id);
   }
 
-  /**
-   * Xem log đối soát thanh toán của 1 ngày (Mục 5.6 spec).
-   * ?date=YYYY-MM-DD (mặc định hôm qua — cùng ngày cron đối soát chạy tự động).
-   * ?run=true → chạy đối soát ngay lập tức cho ngày đó thay vì chỉ đọc log cũ
-   * (hữu ích để test thủ công, không cần đợi tới 00:00).
-   */
+  // ── Kiểm Duyệt Sản Phẩm (Product Moderation) ────────────────────────
+  @Get('products')
+  listProducts(
+    @Query('status') status?: ProductStatus,
+    @Query('storeId') storeId?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.adminService.listProducts({ status, storeId, search, page: page ? parseInt(page, 10) : undefined });
+  }
+
+  @Patch('products/:id/status')
+  updateProductStatus(
+    @Param('id') id: string,
+    @Body('status') status: ProductStatus,
+  ) {
+    return this.adminService.updateProductStatus(id, status);
+  }
+
+  // ── Phê Duyệt Chi Trả Hoa Hồng (Commission Payouts) ─────────────────
+  @Get('payouts')
+  listPayouts(
+    @Query('status') status?: PayoutStatus,
+    @Query('page') page?: string,
+  ) {
+    return this.adminService.listPayouts({ status, page: page ? parseInt(page, 10) : undefined });
+  }
+
+  @Patch('payouts/:id/confirm-paid')
+  confirmPayoutPaid(@Param('id') id: string) {
+    return this.adminService.confirmPayoutPaid(id);
+  }
+
+  // ── Nhật Ký Thao Tác Hệ Thống (Audit Logs) ─────────────────────────
+  @Get('audit-logs')
+  listAuditLogs(@Query('page') page?: string) {
+    return this.adminService.listAuditLogs({ page: page ? parseInt(page, 10) : undefined });
+  }
+
+  // ── Đối Soát Thanh Toán Hàng Ngày ──────────────────────────────────
   @Get('reconciliation/daily')
   async getDailyReconciliation(@Query('date') date?: string, @Query('run') run?: string) {
     const targetDate = date ? new Date(date) : (() => {
@@ -70,3 +124,4 @@ export class AdminController {
     return this.reconciliationService.getDailyLog(targetDate);
   }
 }
+

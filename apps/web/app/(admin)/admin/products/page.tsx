@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../../../../lib/api-client';
 
 interface ProductItem {
@@ -37,7 +37,9 @@ export default function AdminProductsPage() {
   const [msg, setMsg] = useState('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // State cho Modal Thêm Sản Phẩm
+  // State cho File Upload & Modal Thêm Sản Phẩm
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadMode, setUploadMode] = useState<'FILE' | 'URL'>('FILE');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newForm, setNewForm] = useState({
     name: '',
@@ -47,6 +49,22 @@ export default function AdminProductsPage() {
     imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop',
   });
   const [submitting, setSubmitting] = useState(false);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn tập tin hình ảnh dạng PNG, JPG, JPEG hoặc WEBP');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setNewForm((prev) => ({ ...prev, imageUrl: event.target!.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const fetchProducts = () => {
     setLoading(true);
@@ -401,19 +419,89 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
+              {/* Hình ảnh sản phẩm (File Upload hoặc Link URL) */}
               <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">URL Hình Ảnh Sản Phẩm *</label>
-                <input
-                  type="url"
-                  value={newForm.imageUrl}
-                  onChange={(e) => setNewForm({ ...newForm, imageUrl: e.target.value })}
-                  className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-xs focus:border-neutral-900 focus:outline-none"
-                  required
-                />
-                {newForm.imageUrl && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <img src={newForm.imageUrl} alt="Preview" className="h-10 w-10 rounded-lg object-cover border" />
-                    <span className="text-[10px] text-neutral-400">Xem trước hình ảnh</span>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="text-xs font-semibold text-neutral-700">Hình Ảnh Sản Phẩm *</label>
+                  <div className="flex gap-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setUploadMode('FILE')}
+                      className={`rounded-lg px-2 py-0.5 font-medium ${
+                        uploadMode === 'FILE'
+                          ? 'bg-neutral-900 text-white'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      📁 Tải ảnh từ máy tính
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUploadMode('URL')}
+                      className={`rounded-lg px-2 py-0.5 font-medium ${
+                        uploadMode === 'URL'
+                          ? 'bg-neutral-900 text-white'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      🌐 Dán URL
+                    </button>
+                  </div>
+                </div>
+
+                {uploadMode === 'FILE' ? (
+                  <div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-neutral-300 bg-neutral-50/80 p-4 text-center transition hover:border-emerald-500 hover:bg-emerald-50/30"
+                    >
+                      {newForm.imageUrl ? (
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={newForm.imageUrl}
+                            alt="Preview"
+                            className="h-16 w-16 rounded-xl border border-neutral-200 object-cover shadow-sm"
+                          />
+                          <div className="text-left">
+                            <p className="text-xs font-semibold text-emerald-700">✓ Đã chọn ảnh thành công!</p>
+                            <p className="text-[10px] text-neutral-400 mt-0.5">Bấm vào đây để chọn ảnh khác</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-lg mb-1">
+                            📷
+                          </div>
+                          <p className="text-xs font-semibold text-neutral-800">
+                            Bấm để chọn file ảnh từ máy tính / điện thoại
+                          </p>
+                          <p className="text-[10px] text-neutral-400 mt-0.5">Hỗ trợ PNG, JPG, JPEG, WEBP (tối đa 10MB)</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="url"
+                      placeholder="https://example.com/hinh-anh.jpg"
+                      value={newForm.imageUrl}
+                      onChange={(e) => setNewForm({ ...newForm, imageUrl: e.target.value })}
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-xs focus:border-neutral-900 focus:outline-none"
+                    />
+                    {newForm.imageUrl && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <img src={newForm.imageUrl} alt="Preview" className="h-10 w-10 rounded-lg object-cover border" />
+                        <span className="text-[10px] text-neutral-400">Xem trước hình ảnh từ URL</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

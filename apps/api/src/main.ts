@@ -18,7 +18,17 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') ?? '*',
+    origin: (origin, callback) => {
+      // Cho phép requests không có origin (curl, mobile app) hoặc từ localhost (bất kỳ port nào: 3000, 3001...)
+      if (!origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+      const allowedOrigins = process.env.CORS_ORIGIN?.split(',') ?? [];
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
   });
 

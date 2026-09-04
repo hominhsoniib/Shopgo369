@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '../../../../lib/api-client';
 import Card from '../../../../components/ui/Card';
 import Badge from '../../../../components/ui/Badge';
@@ -56,8 +57,43 @@ export default function SellerProductsPage() {
   if (error) return <main className="mx-auto max-w-4xl px-4 py-8 text-neutral-500">{error}</main>;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10">
-      <h1 className="mb-6 font-display text-2xl font-semibold text-neutral-900">Sản phẩm của tôi</h1>
+    <main className="mx-auto max-w-5xl px-4 py-10">
+      {/* Seller Header Navigation */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-neutral-200 pb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">🌾 Quản Lý Sản Phẩm Gian Hàng</h1>
+          <p className="text-xs text-neutral-500 mt-1">
+            Xem danh mục sản phẩm, quản lý số lượng tồn kho và đăng bán sản phẩm
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Link
+            href="/seller/dashboard"
+            className="rounded-xl border border-neutral-300 bg-white px-3.5 py-2 font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            📊 Overview
+          </Link>
+          <Link
+            href="/seller/orders"
+            className="rounded-xl border border-neutral-300 bg-white px-3.5 py-2 font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            📦 Quản lý Đơn hàng
+          </Link>
+          <Link
+            href="/seller/products"
+            className="rounded-xl bg-neutral-900 px-3.5 py-2 font-semibold text-white shadow-sm"
+          >
+            🌾 Quản lý Sản phẩm
+          </Link>
+          <Link
+            href="/seller/promotions"
+            className="rounded-xl border border-neutral-300 bg-white px-3.5 py-2 font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            🏷️ Khuyến mãi
+          </Link>
+        </div>
+      </div>
       {products.length === 0 ? (
         <EmptyState title="Chưa có sản phẩm nào" />
       ) : (

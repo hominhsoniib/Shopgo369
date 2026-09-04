@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '../../../../lib/api-client';
 import Card from '../../../../components/ui/Card';
 import Badge from '../../../../components/ui/Badge';
@@ -91,13 +92,41 @@ export default function SellerDashboardPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-display text-2xl font-semibold text-neutral-900">Seller Center — Tổng quan</h1>
-        <nav className="flex gap-4 text-sm text-neutral-500">
-          <a href="/seller/orders" className="hover:text-primary-700">Đơn hàng</a>
-          <a href="/seller/products" className="hover:text-primary-700">Sản phẩm</a>
-          <a href="/seller/promotions" className="hover:text-primary-700">Khuyến mãi</a>
-        </nav>
+      {/* Seller Header Navigation */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-neutral-200 pb-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-neutral-900">🏬 Seller Center — Tổng Quan</h1>
+          <p className="text-xs text-neutral-500 mt-1">
+            Quản lý doanh thu gian hàng, sản phẩm bán chạy và theo dõi đơn hàng
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Link
+            href="/seller/dashboard"
+            className="rounded-xl bg-neutral-900 px-3.5 py-2 font-semibold text-white shadow-sm"
+          >
+            📊 Overview
+          </Link>
+          <Link
+            href="/seller/orders"
+            className="rounded-xl border border-neutral-300 bg-white px-3.5 py-2 font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            📦 Quản lý Đơn hàng
+          </Link>
+          <Link
+            href="/seller/products"
+            className="rounded-xl border border-neutral-300 bg-white px-3.5 py-2 font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            🌾 Quản lý Sản phẩm
+          </Link>
+          <Link
+            href="/seller/promotions"
+            className="rounded-xl border border-neutral-300 bg-white px-3.5 py-2 font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            🏷️ Khuyến mãi
+          </Link>
+        </div>
       </div>
 
       <section className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">

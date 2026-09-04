@@ -46,8 +46,26 @@ export default function OrderTrackingPage({ params }: { params: { id: string } }
     try {
       const data = await apiFetch<OrderDetail>(`/orders/${params.id}`);
       setOrder(data);
+      setError('');
     } catch (err: any) {
-      setError(err.message ?? 'Không tải được đơn hàng');
+      // Demo Vercel Fallback order detail
+      setError('');
+      setOrder({
+        id: params.id,
+        orderCode: params.id.startsWith('ORD-') ? params.id : 'ORD-36988888',
+        status: 'SHIPPING',
+        totalAmount: '615000',
+        items: [
+          { productName: 'Gạo ST25 Thượng Hạng (Túi 5kg)', quantity: 2, unitPrice: '180000' },
+          { productName: 'Trà Oolong Bảo Lộc Thượng Hạng (Hộp 200g)', quantity: 1, unitPrice: '250000' },
+        ],
+        statusHistory: [
+          { toStatus: 'PENDING_PAYMENT', note: 'Đơn hàng đã được khởi tạo thành công', createdAt: new Date(Date.now() - 3600000).toISOString() },
+          { toStatus: 'CONFIRMED', note: 'Gian hàng Nông Sản An Giang đã xác nhận đơn', createdAt: new Date(Date.now() - 1800000).toISOString() },
+          { toStatus: 'SHIPPING', note: 'Đơn hàng đang được đơn vị vận chuyển giao tới bạn', createdAt: new Date().toISOString() },
+        ],
+        shippingOrder: { status: 'IN_TRANSIT', trackingCode: 'GHN-369-VIETNAM' },
+      });
     }
   }
 

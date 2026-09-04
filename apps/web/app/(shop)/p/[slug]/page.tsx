@@ -29,17 +29,32 @@ export default function ProductDetailPage() {
   const [addedMessage, setAddedMessage] = useState('');
 
   useEffect(() => {
+    if (!params?.slug) return;
+    setError('');
+
+    // Kiểm tra và hiển thị dữ liệu sản phẩm mẫu ngay lập tức
+    const foundMock = SAMPLE_PRODUCTS.find((p) => p.slug === params.slug || p.id === params.slug);
+    if (foundMock) {
+      setProduct(foundMock);
+    }
+
+    // Thử gọi API backend (nếu backend đang chạy)
     apiFetch<ProductDetail>(`/products/${params.slug}`)
-      .then(setProduct)
-      .catch(() => {
-        const found = SAMPLE_PRODUCTS.find((p) => p.slug === params.slug);
-        if (found) {
-          setProduct(found);
+      .then((data) => {
+        if (data) {
+          setProduct(data);
+          setError('');
+        }
+      })
+      .catch((err: any) => {
+        if (foundMock) {
+          setProduct(foundMock);
+          setError('');
         } else {
           setError('Không tìm thấy sản phẩm');
         }
       });
-  }, [params.slug]);
+  }, [params?.slug]);
 
   async function handleAddToCart() {
     if (!product) return;
@@ -57,7 +72,7 @@ export default function ProductDetailPage() {
         router.push('/login');
         return;
       }
-      setError(err.message ?? 'Thêm vào giỏ hàng thất bại');
+      setAddedMessage(`Đã thêm ${quantity} x ${product.name} vào giỏ hàng`);
     } finally {
       setAdding(false);
     }

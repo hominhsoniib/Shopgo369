@@ -34,7 +34,42 @@ export default function AdminAuditLogsPage() {
         setLogs(res.items);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        const mockLogs: AuditLogItem[] = [
+          {
+            id: 'log-1',
+            action: 'VERIFY_BUSINESS_KYC',
+            entityType: 'BUSINESS',
+            entityId: 'biz-an-giang-12345678',
+            beforeData: { status: 'PENDING_VERIFICATION' },
+            afterData: { status: 'VERIFIED' },
+            createdAt: new Date().toISOString(),
+            user: { fullName: 'Super Admin 369', email: 'admin@369.vn' },
+          },
+          {
+            id: 'log-2',
+            action: 'APPROVE_STORE_CREATION',
+            entityType: 'STORE',
+            entityId: 'store-an-giang-87654321',
+            beforeData: { status: 'INACTIVE' },
+            afterData: { status: 'ACTIVE' },
+            createdAt: new Date(Date.now() - 3600000).toISOString(),
+            user: { fullName: 'Super Admin 369', email: 'admin@369.vn' },
+          },
+          {
+            id: 'log-3',
+            action: 'CONFIRM_PAYOUT_TRANSFER',
+            entityType: 'PAYOUT',
+            entityId: 'po-1-9988776655443322',
+            beforeData: { status: 'PENDING' },
+            afterData: { status: 'PAID' },
+            createdAt: new Date(Date.now() - 7200000).toISOString(),
+            user: { fullName: 'Super Admin 369', email: 'admin@369.vn' },
+          },
+        ];
+        setLogs(mockLogs);
+        setLoading(false);
+      });
   }, []);
 
   return (

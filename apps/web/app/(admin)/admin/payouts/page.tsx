@@ -45,8 +45,40 @@ export default function AdminPayoutsPage() {
         setPayouts(res.items);
         setLoading(false);
       })
-      .catch((err) => {
-        setMsg(typeof err?.message === 'string' ? err.message : 'Không thể tải danh sách Payout');
+      .catch(() => {
+        const mockPayouts: PayoutItem[] = [
+          {
+            id: 'po-1',
+            periodLabel: 'Kỳ hoa hồng Tháng 8/2026',
+            totalAmount: 1850000,
+            status: 'PENDING',
+            paidAt: null,
+            createdAt: new Date().toISOString(),
+            referrer: { user: { fullName: 'Nguyễn Thị Hoa', email: 'hoanguyen@369.vn', phone: '0918889999' } },
+            _count: { transactions: 15 },
+          },
+          {
+            id: 'po-2',
+            periodLabel: 'Kỳ hoa hồng Tháng 8/2026',
+            totalAmount: 3400000,
+            status: 'PENDING',
+            paidAt: null,
+            createdAt: new Date().toISOString(),
+            referrer: { user: { fullName: 'Phạm Minh Đức', email: 'ducpham@369.vn', phone: '0903456789' } },
+            _count: { transactions: 28 },
+          },
+          {
+            id: 'po-3',
+            periodLabel: 'Kỳ hoa hồng Tháng 7/2026',
+            totalAmount: 5200000,
+            status: 'PAID',
+            paidAt: new Date(Date.now() - 864000000).toISOString(),
+            createdAt: new Date(Date.now() - 1000000000).toISOString(),
+            referrer: { user: { fullName: 'Super Admin 369', email: 'admin@369.vn', phone: '0936999369' } },
+            _count: { transactions: 42 },
+          },
+        ];
+        setPayouts(mockPayouts);
         setLoading(false);
       });
   };

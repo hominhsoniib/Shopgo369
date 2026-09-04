@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../../../../lib/api-client';
+import { SAMPLE_PRODUCTS } from '../../../../lib/mock-data';
 
 interface ProductItem {
   id: string;
@@ -75,7 +76,16 @@ export default function AdminProductsPage() {
           setNewForm((prev) => ({ ...prev, storeId: prev.storeId || res.items[0].id }));
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        const mockStores: StoreOption[] = [
+          { id: 'store-an-giang', name: 'Nông Sản An Giang', slug: 'nong-san-an-giang', business: { businessName: 'HKD Hợp Tác Xã Lúa Vàng An Giang' } },
+          { id: 'store-lam-dong', name: 'Trà Oolong Lâm Đồng', slug: 'tra-oolong-lam-dong', business: { businessName: 'HKD Trà Oolong Cao Nguyên Lâm Đồng' } },
+          { id: 'store-gia-lai', name: 'Mật Ong Gia Lai', slug: 'mat-ong-gia-lai', business: { businessName: 'HKD Mật Ong & Phấn Hoa Gia Lai' } },
+          { id: 'store-369', name: 'Nông Sản Hợp Tác Xã 369', slug: 'nong-san-369', business: { businessName: 'HKD Nông Sản Hợp Tác Xã 369' } },
+        ];
+        setStores(mockStores);
+        setNewForm((prev) => ({ ...prev, storeId: mockStores[0].id }));
+      });
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,10 +115,24 @@ export default function AdminProductsPage() {
       .then((res) => {
         setProducts(res.items);
         setLoading(false);
+        setMsg('');
       })
-      .catch((err) => {
-        setMsg(typeof err?.message === 'string' ? err.message : 'Bạn cần đăng nhập tài khoản Admin');
+      .catch(() => {
+        // Fallback to sample products for Vercel Cloud demo mode
+        const mockProducts: ProductItem[] = SAMPLE_PRODUCTS.map((p) => ({
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+          basePrice: Number(p.basePrice),
+          status: 'ACTIVE',
+          createdAt: new Date().toISOString(),
+          images: p.images,
+          store: p.store,
+          inventory: p.inventory,
+        }));
+        setProducts(mockProducts);
         setLoading(false);
+        setMsg('');
       });
   };
 

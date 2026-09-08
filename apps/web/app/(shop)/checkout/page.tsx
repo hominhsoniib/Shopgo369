@@ -14,29 +14,19 @@ interface ShippingMethod {
   estimatedDays: number;
 }
 
+// Khớp response thật của GET /shipping/vouchers (ShippingVouchersService.listActive) —
+// thay cho mảng FREESHIP_VOUCHERS hardcode trước đây (chỉ tồn tại trong state React,
+// không ghi DB, khiến khách thấy "0đ FREESHIP" trên UI nhưng đơn thật vẫn bị tính đủ phí ship).
+interface FreeshipVoucher {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  discountAmount: string; // Decimal của Prisma serialize qua JSON dạng string
+}
+
 const inputClass =
   'rounded-xl border border-neutral-300 px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none';
-
-const FREESHIP_VOUCHERS = [
-  {
-    code: 'FREESHIP369',
-    name: 'Miễn phí vận chuyển 100% — ShopGo 369',
-    description: 'Giảm 100% phí giao hàng cho mọi đơn nông sản',
-    discountAmount: 35000,
-  },
-  {
-    code: 'FREESHIP30K',
-    name: 'Mã Freeship Nông Sản 30.000đ',
-    description: 'Giảm tối đa 30.000đ phí giao hàng nhanh',
-    discountAmount: 30000,
-  },
-  {
-    code: 'HTX369SHIP',
-    name: 'Mã Khuyến Mãi Phí Ship Hợp Tác Xã 369',
-    description: 'Hỗ trợ 20.000đ cước vận chuyển nông sản tận nhà',
-    discountAmount: 20000,
-  },
-];
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -44,11 +34,12 @@ export default function CheckoutPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Voucher states
-  const [voucherCode, setVoucherCode] = useState('FREESHIP369');
-  const [appliedVoucher, setAppliedVoucher] = useState<(typeof FREESHIP_VOUCHERS)[0] | null>(FREESHIP_VOUCHERS[0]);
+  // Voucher states — danh sách và trạng thái áp dụng lấy từ API thật (GET /shipping/vouchers)
+  const [vouchers, setVouchers] = useState<FreeshipVoucher[]>([]);
+  const [voucherCode, setVoucherCode] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState<FreeshipVoucher | null>(null);
   const [voucherInput, setVoucherInput] = useState('');
-  const [voucherMsg, setVoucherMsg] = useState('🎉 Đã áp dụng mã miễn phí vận chuyển FREESHIP369 (Giảm 100% phí ship)');
+  const [voucherMsg, setVoucherMsg] = useState('');
 
   const [form, setForm] = useState({
     receiver: '',
@@ -80,6 +71,26 @@ export default function CheckoutPage() {
       });
   }, []);
 
+  useEffect(() => {
+    apiFetch<FreeshipVoucher[]>('/shipping/vouchers')
+      .then((data) => {
+        if (data && data.length > 0) {
+          setVouchers(data);
+          // Giữ nguyên UX cũ: tự áp mã đầu tiên (giảm nhiều nhất, API trả theo
+          // orderBy discountAmount desc) ngay khi vào trang, nhưng nay là dữ liệu thật.
+          const first = data[0];
+          setAppliedVoucher(first);
+          setVoucherCode(first.code);
+          setVoucherMsg(`🎉 Đã áp dụng mã miễn phí vận chuyển ${first.code} (Giảm ${Number(first.discountAmount).toLocaleString('vi-VN')}đ phí ship)`);
+        }
+      })
+      .catch(() => {
+        // Không có mã freeship nào khả dụng (API lỗi hoặc chưa có mã active) —
+        // ẩn mềm, không chặn luồng đặt hàng chính.
+        setVouchers([]);
+      });
+  }, []);
+
   function update(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
   }
@@ -87,15 +98,16 @@ export default function CheckoutPage() {
   const selectedMethod = methods.find((m) => m.id === form.shippingMethodId);
   const baseShippingFee = selectedMethod ? Number(selectedMethod.baseFee) : 0;
   
-  // Tính số tiền phí ship được giảm bởi Freeship Voucher
+  // Tính số tiền phí ship được giảm bởi Freeship Voucher (chỉ để hiển thị preview —
+  // số tiền giảm THẬT do backend tự tính lại trong OrdersService.validateVoucher khi tạo đơn)
   const shippingDiscount = appliedVoucher
-    ? Math.min(baseShippingFee, appliedVoucher.discountAmount)
+    ? Math.min(baseShippingFee, Number(appliedVoucher.discountAmount))
     : 0;
   const finalShippingFee = Math.max(0, baseShippingFee - shippingDiscount);
 
   function handleApplyVoucher(codeToApply?: string) {
     const code = (codeToApply || voucherInput || voucherCode).trim().toUpperCase();
-    const found = FREESHIP_VOUCHERS.find((v) => v.code === code);
+    const found = vouchers.find((v) => v.code === code);
 
     if (found) {
       setAppliedVoucher(found);
@@ -130,6 +142,7 @@ export default function CheckoutPage() {
           },
           shippingMethodId: form.shippingMethodId,
           paymentMethod: form.paymentMethod,
+          freeshipVoucherCode: appliedVoucher?.code || undefined,
           note: form.note || undefined,
         }),
       });
@@ -221,86 +234,90 @@ export default function CheckoutPage() {
           </div>
         </Card>
 
-        {/* SECTION VOUCHER MIỄN PHÍ VẬN CHUYỂN */}
-        <Card className="p-5 border border-emerald-200 bg-emerald-50/40 shadow-xs rounded-2xl">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
-              <span>🎟️</span> Voucher Miễn Phí Vận Chuyển (Freeship 369)
-            </h2>
-            {appliedVoucher && (
-              <button
-                type="button"
-                onClick={handleRemoveVoucher}
-                className="text-[11px] font-semibold text-rose-600 hover:underline"
-              >
-                Bỏ chọn voucher
-              </button>
-            )}
-          </div>
-
-          {/* Danh sách Mã Freeship Khả Dụng */}
-          <div className="space-y-2 mb-3">
-            {FREESHIP_VOUCHERS.map((v) => {
-              const isApplied = appliedVoucher?.code === v.code;
-              return (
-                <div
-                  key={v.code}
-                  onClick={() => handleApplyVoucher(v.code)}
-                  className={`flex items-center justify-between rounded-xl border p-3 cursor-pointer transition text-xs ${
-                    isApplied
-                      ? 'border-emerald-600 bg-emerald-100/80 shadow-xs'
-                      : 'border-emerald-200 bg-white hover:bg-emerald-50'
-                  }`}
+        {/* SECTION VOUCHER MIỄN PHÍ VẬN CHUYỂN — chỉ hiện khi có mã active thật từ API */}
+        {vouchers.length > 0 && (
+          <Card className="p-5 border border-emerald-200 bg-emerald-50/40 shadow-xs rounded-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
+                <span>🎟️</span> Voucher Miễn Phí Vận Chuyển (Freeship 369)
+              </h2>
+              {appliedVoucher && (
+                <button
+                  type="button"
+                  onClick={handleRemoveVoucher}
+                  className="text-[11px] font-semibold text-rose-600 hover:underline"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-base">🚚</span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <strong className="font-mono font-bold text-emerald-900">{v.code}</strong>
-                        <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase">
-                          Freeship
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-neutral-600 mt-0.5">{v.description}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className={`rounded-lg px-3 py-1 text-[11px] font-semibold transition ${
+                  Bỏ chọn voucher
+                </button>
+              )}
+            </div>
+
+            {/* Danh sách Mã Freeship Khả Dụng */}
+            <div className="space-y-2 mb-3">
+              {vouchers.map((v) => {
+                const isApplied = appliedVoucher?.code === v.code;
+                return (
+                  <div
+                    key={v.code}
+                    onClick={() => handleApplyVoucher(v.code)}
+                    className={`flex items-center justify-between rounded-xl border p-3 cursor-pointer transition text-xs ${
                       isApplied
-                        ? 'bg-emerald-700 text-white'
-                        : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                        ? 'border-emerald-600 bg-emerald-100/80 shadow-xs'
+                        : 'border-emerald-200 bg-white hover:bg-emerald-50'
                     }`}
                   >
-                    {isApplied ? 'Đã áp dụng' : 'Dùng mã'}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base">🚚</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <strong className="font-mono font-bold text-emerald-900">{v.code}</strong>
+                          <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase">
+                            Freeship
+                          </span>
+                        </div>
+                        {v.description && (
+                          <p className="text-[11px] text-neutral-600 mt-0.5">{v.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`rounded-lg px-3 py-1 text-[11px] font-semibold transition ${
+                        isApplied
+                          ? 'bg-emerald-700 text-white'
+                          : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                      }`}
+                    >
+                      {isApplied ? 'Đã áp dụng' : 'Dùng mã'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
 
-          {/* Ô Nhập Mã Khác */}
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Nhập mã freeship khác (ví dụ: FREESHIP369)"
-              value={voucherInput}
-              onChange={(e) => setVoucherInput(e.target.value)}
-              className="flex-1 rounded-xl border border-emerald-300 px-3 py-2 text-xs font-mono uppercase bg-white focus:border-emerald-600 focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => handleApplyVoucher()}
-              className="rounded-xl bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-800 transition"
-            >
-              Áp dụng
-            </button>
-          </div>
+            {/* Ô Nhập Mã Khác */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Nhập mã freeship khác (ví dụ: FREESHIP369)"
+                value={voucherInput}
+                onChange={(e) => setVoucherInput(e.target.value)}
+                className="flex-1 rounded-xl border border-emerald-300 px-3 py-2 text-xs font-mono uppercase bg-white focus:border-emerald-600 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => handleApplyVoucher()}
+                className="rounded-xl bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-800 transition"
+              >
+                Áp dụng
+              </button>
+            </div>
 
-          {voucherMsg && (
-            <p className="mt-2 text-[11px] font-medium text-emerald-900">{voucherMsg}</p>
-          )}
-        </Card>
+            {voucherMsg && (
+              <p className="mt-2 text-[11px] font-medium text-emerald-900">{voucherMsg}</p>
+            )}
+          </Card>
+        )}
 
         {/* Phương thức thanh toán */}
         <Card className="p-5 border border-neutral-200 shadow-xs rounded-2xl">

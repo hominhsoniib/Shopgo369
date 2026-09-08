@@ -1,5 +1,6 @@
 import { Body, Controller, Post, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -13,12 +14,15 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // finding #4 (P0): chống brute-force đăng ký spam + dò mật khẩu — siết chặt hơn mức default toàn hệ thống
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('register')
   @ApiOperation({ summary: 'Đăng ký tài khoản mới (mặc định role CUSTOMER)' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Đăng nhập, trả về access + refresh token' })

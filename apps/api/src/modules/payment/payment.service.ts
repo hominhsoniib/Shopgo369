@@ -124,7 +124,15 @@ export class PaymentService {
     return { ...payload, signature };
   }
 
-  getStatus(orderId: string) {
+  /** finding #5 (P0/IDOR): chỉ chủ đơn hoặc role ADMIN/SUPER_ADMIN/ACCOUNTANT mới xem được trạng thái thanh toán */
+  async getStatus(userId: string, userRoles: string[], orderId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId }, select: { userId: true } });
+    if (!order) throw new NotFoundException('Đơn hàng không tồn tại');
+    const isOwner = order.userId === userId;
+    const isPrivileged = userRoles?.some((r) => ['ADMIN', 'SUPER_ADMIN', 'ACCOUNTANT'].includes(r));
+    if (!isOwner && !isPrivileged) {
+      throw new ForbiddenException('Bạn không có quyền xem trạng thái thanh toán của đơn hàng này');
+    }
     return this.prisma.payment.findUnique({
       where: { orderId },
       include: { transactions: true },

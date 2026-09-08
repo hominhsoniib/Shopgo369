@@ -84,12 +84,12 @@ export class CatalogService {
     initialQuantity?: number;
     imageUrls?: string[];
   }) {
-    let store = await this.prisma.store.findFirst({ where: { business: { member: { userId } } } });
-    if (!store) {
-      // Fallback: nếu là Admin tạo sản phẩm thì tự động gán vào Gian hàng ACTIVE đầu tiên
-      store = await this.prisma.store.findFirst({ where: { status: StoreStatus.ACTIVE, deletedAt: null } });
-    }
-    if (!store) throw new NotFoundException('Không tìm thấy gian hàng hoạt động để đăng sản phẩm');
+    // finding #1 (P0): đã bỏ fallback "gán vào gian hàng ACTIVE đầu tiên trong DB" — fallback này
+    // cho phép bất kỳ user nào (kể cả không sở hữu gian hàng) tạo sản phẩm vào gian hàng của người khác.
+    // Admin muốn tạo hộ sản phẩm cho seller phải dùng endpoint riêng POST /admin/products (finding #12, P1),
+    // truyền storeId tường minh — không suy đoán ngầm.
+    const store = await this.prisma.store.findFirst({ where: { business: { member: { userId } } } });
+    if (!store) throw new NotFoundException('Bạn chưa có gian hàng để đăng sản phẩm');
 
     const baseSlug = slugify(data.name);
     const slug = await this.ensureUniqueSlug(baseSlug);

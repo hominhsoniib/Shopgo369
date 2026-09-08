@@ -35,6 +35,11 @@ export class CheckoutDto {
   @IsString()
   promoCode?: string;
 
+  @ApiProperty({ required: false, description: 'Mã voucher miễn phí vận chuyển (platform-wide, khác Promotion theo store)' })
+  @IsOptional()
+  @IsString()
+  freeshipVoucherCode?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()

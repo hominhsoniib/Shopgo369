@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
 import { IsEnum, IsNotEmpty, IsNumber } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -17,16 +19,20 @@ class SimulateMockPaymentDto {
 @UseGuards(JwtAuthGuard)
 @Controller('payments')
 export class PaymentController {
-  constructor(private readonly paymentService: PaymentService) {}
+  constructor(
+    private readonly paymentService: PaymentService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post(':orderId/init')
   init(@CurrentUser() user: { id: string }, @Param('orderId') orderId: string) {
     return this.paymentService.initPayment(user.id, orderId);
   }
 
+  // finding #5 (P0/IDOR): truyền user + roles xuống service để kiểm tra ownership
   @Get(':orderId/status')
-  getStatus(@Param('orderId') orderId: string) {
-    return this.paymentService.getStatus(orderId);
+  getStatus(@CurrentUser() user: { id: string; roles: string[] }, @Param('orderId') orderId: string) {
+    return this.paymentService.getStatus(user.id, user.roles, orderId);
   }
 
   /**
@@ -35,9 +41,17 @@ export class PaymentController {
    * VNPay/Momo thật. KHÔNG deploy endpoint này lên production (Mục 7.2 spec:
    * webhook thật phải verify signature + whitelist IP từ gateway, không được
    * tự gọi từ FE).
+   *
+   * finding #2 (P0/CRITICAL): trước đây không có gate nào ngoài comment —
+   * bất kỳ user đăng nhập nào cũng đánh dấu được bất kỳ đơn nào là đã thanh
+   * toán thành công. Giờ chặn cứng bằng NODE_ENV, không chỉ dựa vào comment.
    */
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('mock/simulate')
   simulateMockPayment(@Body() dto: SimulateMockPaymentDto) {
+    if (this.configService.get('env') === 'production') {
+      throw new ForbiddenException('Endpoint này không khả dụng ở môi trường production');
+    }
     const payload = this.paymentService.buildMockWebhookPayload(
       dto.orderId,
       dto.gatewayTransactionRef,

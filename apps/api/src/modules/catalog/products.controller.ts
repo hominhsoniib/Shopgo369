@@ -45,7 +45,8 @@ export class ProductsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SELLER', 'ADMIN', 'SUPER_ADMIN')
   @Post()
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateProductDto) {
     return this.catalogService.createProduct(user.id, dto);

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import configuration from './config/configuration';
 
 import { PrismaModule } from './modules/prisma/prisma.module';
@@ -36,6 +38,9 @@ import { LearningModule } from './modules/learning/learning.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     ScheduleModule.forRoot(), // kích hoạt @Cron (Mục 4.1 spec: dọn reservation hết hạn)
+    // finding #4 (P0): trước đây không có rate limit ở đâu cả. Mặc định toàn hệ thống
+    // 20 request/phút/IP; các route nhạy cảm (login, mock/simulate) siết chặt hơn bằng @Throttle().
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
     PrismaModule,
     RedisModule,
     IdentityModule,
@@ -61,5 +66,6 @@ import { LearningModule } from './modules/learning/learning.module';
     PointsModule,
     LearningModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

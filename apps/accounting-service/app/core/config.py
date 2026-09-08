@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    env: str = "development"
     database_read_url: str = "postgresql://postgres:postgres@localhost:5432/platform369"
     database_report_write_url: str = "postgresql://postgres:postgres@localhost:5432/platform369"
     redis_url: str = "redis://localhost:6379"

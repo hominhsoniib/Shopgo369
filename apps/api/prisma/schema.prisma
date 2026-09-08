@@ -399,6 +399,8 @@ model Order {
   shippingFee   Decimal       @db.Decimal(14, 2) @default(0)
   discountAmount Decimal      @map("discount_amount") @db.Decimal(14, 2) @default(0) // ★ Phase 3
   promotionId   String?       @map("promotion_id") // ★ Phase 3
+  shippingDiscountAmount Decimal @map("shipping_discount_amount") @db.Decimal(14, 2) @default(0) // ★ Freeship voucher
+  shippingVoucherId      String? @map("shipping_voucher_id") // ★ Freeship voucher
   totalAmount   Decimal       @map("total_amount") @db.Decimal(14, 2)
   note          String?
   paymentDueAt  DateTime?     @map("payment_due_at") // hạn thanh toán — dùng cho job auto-cancel
@@ -408,6 +410,7 @@ model Order {
 
   store          Store                   @relation(fields: [storeId], references: [id])
   promotion      Promotion?              @relation(fields: [promotionId], references: [id])
+  shippingVoucher ShippingVoucher?       @relation(fields: [shippingVoucherId], references: [id])
   items          OrderItem[]
   statusHistory  OrderStatusHistory[]
   address        OrderAddress?
@@ -415,6 +418,7 @@ model Order {
   payment        Payment?
   shippingOrder  ShippingOrder?
   promotionUsage PromotionUsage?
+  shippingVoucherUsage ShippingVoucherUsage?
   incomeTransaction   IncomeTransaction?
   expenseTransactions ExpenseTransaction[]
   commissionTransaction CommissionTransaction?
@@ -490,6 +494,45 @@ model ShippingMethod {
   isActive      Boolean  @default(true) @map("is_active")
 
   @@map("shipping_methods")
+}
+
+// ★ Freeship voucher — platform-wide (KHÔNG theo từng store, khác với Promotion),
+// dùng cho checkout/page.tsx "Voucher Miễn Phí Vận Chuyển (Freeship 369)".
+// Trước đây FE hardcode 3 mã (FREESHIP369/FREESHIP30K/HTX369SHIP) chỉ ở state React,
+// không hề gọi API, khiến khách thấy "0đ FREESHIP" trên UI nhưng đơn thật vẫn bị tính
+// đủ 100% phí ship — bảng này + API bên dưới thay hardcode bằng dữ liệu thật trong DB.
+model ShippingVoucher {
+  id             String    @id @default(uuid())
+  code           String    @unique
+  name           String
+  description    String?
+  discountAmount Decimal   @map("discount_amount") @db.Decimal(14, 2)
+  usageLimit     Int?      @map("usage_limit") // null = không giới hạn
+  usedCount      Int       @default(0) @map("used_count")
+  isActive       Boolean   @default(true) @map("is_active")
+  startsAt       DateTime? @map("starts_at")
+  endsAt         DateTime? @map("ends_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  orders Order[]
+  usages ShippingVoucherUsage[]
+
+  @@map("shipping_vouchers")
+}
+
+model ShippingVoucherUsage {
+  id                String   @id @default(uuid())
+  shippingVoucherId String   @map("shipping_voucher_id")
+  orderId           String   @unique @map("order_id")
+  userId            String   @map("user_id")
+  discountAmount    Decimal  @map("discount_amount") @db.Decimal(14, 2)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  shippingVoucher ShippingVoucher @relation(fields: [shippingVoucherId], references: [id], onDelete: Cascade)
+  order           Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("shipping_voucher_usages")
 }
 
 model ShippingOrder {

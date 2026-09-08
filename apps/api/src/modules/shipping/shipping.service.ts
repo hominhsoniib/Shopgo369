@@ -59,7 +59,21 @@ export class ShippingService {
     ]);
   }
 
-  getByOrderId(orderId: string) {
+  /** finding #6 (P1/IDOR): chỉ buyer của đơn, seller sở hữu store, hoặc role ADMIN/SUPER_ADMIN mới xem được tracking */
+  async getByOrderId(orderId: string, userId: string, userRoles: string[]) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { store: { include: { business: { include: { member: true } } } } },
+    });
+    if (!order) throw new NotFoundException('Đơn hàng không tồn tại');
+
+    const isBuyer = order.userId === userId;
+    const isSeller = order.store.business.member.userId === userId;
+    const isPrivileged = userRoles?.some((r) => ['ADMIN', 'SUPER_ADMIN'].includes(r));
+    if (!isBuyer && !isSeller && !isPrivileged) {
+      throw new ForbiddenException('Bạn không có quyền xem thông tin vận chuyển của đơn hàng này');
+    }
+
     return this.prisma.shippingOrder.findUnique({
       where: { orderId },
       include: { tracking: { orderBy: { createdAt: 'asc' } } },

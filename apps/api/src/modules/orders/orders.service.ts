@@ -3,6 +3,7 @@ import { OrderStatus, PaymentMethod, PaymentStatus, StoreStatus } from '@prisma/
 import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { ShippingService } from '../shipping/shipping.service';
+import { ShippingVouchersService } from '../shipping/shipping-vouchers.service';
 import { CartService } from '../cart/cart.service';
 import { QueueService } from '../queue/queue.service';
 import { PromotionsService } from '../promotions/promotions.service';
@@ -24,6 +25,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly inventoryService: InventoryService,
     private readonly shippingService: ShippingService,
+    private readonly shippingVouchersService: ShippingVouchersService,
     private readonly cartService: CartService,
     private readonly queueService: QueueService,
     private readonly promotionsService: PromotionsService,
@@ -110,7 +112,23 @@ export class OrdersService {
       promotionId = promotion.id;
     }
 
-    const totalAmount = subtotal + shippingFee - discountAmount;
+    // ── Freeship voucher (platform-wide, khác Promotion theo store — xem
+    // ShippingVouchersService) ── Giới hạn giống hệt cách shippingFee đã được tính hiện tại:
+    // Phase 2 áp DUY NHẤT 1 shippingMethodId cho MỌI store trong giỏ hàng nhiều gian hàng,
+    // nên mã freeship cũng được áp lặp lại cho từng order con theo đúng cách đó — không phải
+    // giới hạn riêng của phần freeship, mà kế thừa giới hạn kiến trúc đã có sẵn của checkout().
+    let shippingDiscountAmount = 0;
+    let shippingVoucherId: string | undefined;
+    if (dto.freeshipVoucherCode) {
+      const { voucher, discountAmount: computedShippingDiscount } = await this.shippingVouchersService.validateVoucher(
+        dto.freeshipVoucherCode,
+        shippingFee,
+      );
+      shippingDiscountAmount = computedShippingDiscount;
+      shippingVoucherId = voucher.id;
+    }
+
+    const totalAmount = subtotal + shippingFee - discountAmount - shippingDiscountAmount;
     const orderCode = await this.generateOrderCode();
 
     const initialStatus =
@@ -121,13 +139,19 @@ export class OrdersService {
         : null;
 
     // Bước 1: tạo Order + OrderItems + OrderAddress + status history (1 DB transaction)
-    // ĐỒNG THỜI tăng usedCount của promotion ATOMIC trong CÙNG transaction —
+    // ĐỒNG THỜI tăng usedCount của promotion + freeship voucher ATOMIC trong CÙNG transaction —
     // nếu mã vừa hết lượt (race condition), toàn bộ transaction rollback tự động.
     const order = await this.prisma.$transaction(async (tx) => {
       if (promotionId) {
         const ok = await this.promotionsService.incrementUsageAtomic(tx, promotionId);
         if (!ok) {
           throw new BadRequestException('Mã khuyến mãi vừa hết lượt sử dụng, vui lòng thử lại không dùng mã');
+        }
+      }
+      if (shippingVoucherId) {
+        const ok = await this.shippingVouchersService.incrementUsageAtomic(tx, shippingVoucherId);
+        if (!ok) {
+          throw new BadRequestException('Mã freeship vừa hết lượt sử dụng, vui lòng thử lại không dùng mã');
         }
       }
 
@@ -142,6 +166,8 @@ export class OrdersService {
           shippingFee,
           discountAmount,
           promotionId,
+          shippingDiscountAmount,
+          shippingVoucherId,
           totalAmount,
           note: dto.note,
           paymentDueAt,
@@ -161,6 +187,11 @@ export class OrdersService {
       if (promotionId) {
         await tx.promotionUsage.create({
           data: { promotionId, orderId: created.id, userId, discountAmount },
+        });
+      }
+      if (shippingVoucherId) {
+        await tx.shippingVoucherUsage.create({
+          data: { shippingVoucherId, orderId: created.id, userId, discountAmount: shippingDiscountAmount },
         });
       }
 

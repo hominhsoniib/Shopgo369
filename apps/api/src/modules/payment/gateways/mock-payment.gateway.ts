@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, randomUUID } from 'crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PaymentStatus } from '@prisma/client';
 import {
@@ -40,9 +40,23 @@ export class MockPaymentGateway implements PaymentGatewayAdapter {
 
   verifyWebhook(payload: Record<string, any>): WebhookVerifyResult {
     const secret = this.config.get<string>('PAYMENT_MOCK_SECRET') ?? '';
+    // finding mới (soi khi audit toàn bộ): nếu PAYMENT_MOCK_SECRET không được set, secret rỗng
+    // ('') là 1 HMAC key CÔNG KHAI biết trước — bất kỳ ai cũng tự ký được webhook giả mạo mà
+    // không cần biết secret thật. Chặn cứng ở production, giống pattern seed.ts đã áp dụng cho
+    // SEED_ADMIN_PASSWORD.
+    if (!secret && this.config.get('env') === 'production') {
+      throw new Error('PAYMENT_MOCK_SECRET chưa được cấu hình ở production — từ chối xử lý webhook');
+    }
     const expectedSignature = this.sign(payload, secret);
 
-    if (payload.signature !== expectedSignature) {
+    // finding mới: so sánh chuỗi bằng !== là timing-unsafe (thời gian so sánh lộ dần từng ký tự
+    // đúng/sai, có thể bị khai thác qua đo độ trễ mạng lặp lại). Dùng timingSafeEqual thay thế.
+    const provided = typeof payload.signature === 'string' ? payload.signature : '';
+    const isHexAndSameLength = /^[0-9a-f]+$/i.test(provided) && provided.length === expectedSignature.length;
+    const isSignatureValid =
+      isHexAndSameLength && timingSafeEqual(Buffer.from(provided, 'hex'), Buffer.from(expectedSignature, 'hex'));
+
+    if (!isSignatureValid) {
       return { isValid: false };
     }
 

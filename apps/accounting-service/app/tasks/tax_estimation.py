@@ -9,7 +9,7 @@ Phase 4: dùng 1 tỷ lệ mặc định cấu hình được — production c�
 ngành nghề đăng ký của từng business (Mục 1.1 spec bài học: không suy diễn
 số liệu pháp lý khi thiếu dữ liệu — đây là điểm cần hoàn thiện thêm).
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 import logging
 import os
@@ -36,12 +36,23 @@ def _quarter_range(dt: datetime) -> tuple[datetime, datetime]:
     return start, end
 
 
+def _previous_quarter_range(dt: datetime) -> tuple[datetime, datetime]:
+    """finding #17 (P1): job chạy ĐẦU MỖI QUÝ để ước tính thuế của QUÝ VỪA KẾT THÚC.
+    Bản cũ gọi _quarter_range(now) — tính luôn quý hiện tại (vừa mới bắt đầu, gần như
+    chưa có doanh thu) thay vì quý trước đó, khiến số liệu kê khai thuế sai hoàn toàn.
+    """
+    current_quarter_start, _ = _quarter_range(dt)
+    last_day_of_previous_quarter = current_quarter_start - timedelta(days=1)
+    return _quarter_range(last_day_of_previous_quarter)
+
+
 @celery_app.task(name="app.tasks.tax_estimation.run_quarterly_tax_estimation")
 def run_quarterly_tax_estimation():
     """Chạy đầu mỗi quý — ước tính thuế khoán dựa trên doanh thu quý trước, lưu vào tax_estimation_snapshots."""
     now = datetime.utcnow()
-    period_start, period_end = _quarter_range(now)
-    period_label = _current_quarter_label(now)
+    # finding #17 (P1): dùng quý VỪA KẾT THÚC, không phải quý hiện tại (xem docstring _previous_quarter_range)
+    period_start, period_end = _previous_quarter_range(now)
+    period_label = _current_quarter_label(period_start)
 
     store_ids = get_all_active_store_ids()
     success = 0

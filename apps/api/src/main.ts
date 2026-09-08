@@ -27,7 +27,8 @@ async function bootstrap() {
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      return callback(null, true);
+      // finding #3 (P0): trước đây luôn callback(null, true) bất kể origin — CORS mở toàn bộ.
+      return callback(new Error('Origin không được phép bởi CORS'), false);
     },
     credentials: true,
   });

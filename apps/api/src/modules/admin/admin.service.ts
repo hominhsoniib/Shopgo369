@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { FieldEncryptionService } from '../../common/crypto/field-encryption.service';
 import { BusinessStatus, MemberStatus, ProductStatus, StoreStatus, PayoutStatus } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly crypto: FieldEncryptionService,
+  ) {}
 
   /** Dashboard tổng quan Phase 1 — số liệu cơ bản */
   async getOverview() {
@@ -61,12 +65,13 @@ export class AdminService {
     if (!member) throw new NotFoundException('Thành viên không tồn tại');
     if (member.business) throw new ConflictException('Thành viên này đã đăng ký Hộ kinh doanh');
 
-    return this.prisma.business.create({
+    const created = await this.prisma.business.create({
       data: {
         memberId: dto.memberId,
         businessName: dto.businessName.trim(),
         taxCode: dto.taxCode ? dto.taxCode.trim() : null,
-        ownerIdCard: dto.ownerIdCard.trim(),
+        ownerIdCard: this.crypto.encrypt(dto.ownerIdCard.trim()), // mã hoá at-rest (Mục 7.2 spec)
+        ownerIdCardHash: this.crypto.hashForLookup(dto.ownerIdCard),
         address: dto.address.trim(),
         status: dto.status || BusinessStatus.VERIFIED,
       },
@@ -75,6 +80,7 @@ export class AdminService {
         store: { select: { id: true, name: true, slug: true, status: true } },
       },
     });
+    return { ...created, ownerIdCard: this.crypto.decrypt(created.ownerIdCard) };
   }
 
   async updateBusinessByAdmin(
@@ -90,12 +96,17 @@ export class AdminService {
     const business = await this.prisma.business.findUnique({ where: { id } });
     if (!business) throw new NotFoundException('Hộ kinh doanh không tồn tại');
 
-    return this.prisma.business.update({
+    const updated = await this.prisma.business.update({
       where: { id },
       data: {
         ...(dto.businessName ? { businessName: dto.businessName.trim() } : {}),
         ...(dto.taxCode !== undefined ? { taxCode: dto.taxCode ? dto.taxCode.trim() : null } : {}),
-        ...(dto.ownerIdCard ? { ownerIdCard: dto.ownerIdCard.trim() } : {}),
+        ...(dto.ownerIdCard
+          ? {
+              ownerIdCard: this.crypto.encrypt(dto.ownerIdCard.trim()),
+              ownerIdCardHash: this.crypto.hashForLookup(dto.ownerIdCard),
+            }
+          : {}),
         ...(dto.address ? { address: dto.address.trim() } : {}),
         ...(dto.status ? { status: dto.status } : {}),
       },
@@ -104,6 +115,7 @@ export class AdminService {
         store: { select: { id: true, name: true, slug: true, status: true } },
       },
     });
+    return { ...updated, ownerIdCard: this.crypto.decrypt(updated.ownerIdCard) };
   }
 
   async deleteBusinessByAdmin(id: string) {
@@ -126,10 +138,18 @@ export class AdminService {
     const where: any = { deletedAt: null };
     if (params.status) where.status = params.status;
     if (params.search) {
+      const trimmed = params.search.trim();
+      // CCCD giờ đã mã hoá — KHÔNG thể `contains` trên ciphertext. Nếu từ khoá
+      // tìm kiếm toàn số (đúng dạng CCCD/CMND VN, 9 hoặc 12 chữ số) thì tra
+      // cứu CHÍNH XÁC qua ownerIdCardHash (blind index); ngược lại chỉ tìm
+      // theo businessName/taxCode như cũ. Đây là đánh đổi có chủ đích: mất
+      // khả năng tìm CCCD theo kiểu gõ 1 phần, đổi lấy việc CCCD không còn
+      // nằm plaintext trong DB (Mục 7.2 spec, Nghị định 13/2023/NĐ-CP).
+      const looksLikeIdCard = /^\d{9}$|^\d{12}$/.test(trimmed);
       where.OR = [
-        { businessName: { contains: params.search, mode: 'insensitive' } },
-        { taxCode: { contains: params.search, mode: 'insensitive' } },
-        { ownerIdCard: { contains: params.search, mode: 'insensitive' } },
+        { businessName: { contains: trimmed, mode: 'insensitive' } },
+        { taxCode: { contains: trimmed, mode: 'insensitive' } },
+        ...(looksLikeIdCard ? [{ ownerIdCardHash: this.crypto.hashForLookup(trimmed) }] : []),
       ];
     }
 
@@ -147,30 +167,37 @@ export class AdminService {
       this.prisma.business.count({ where }),
     ]);
 
-    return { items, total, page, pageSize };
+    return {
+      items: items.map((b) => ({ ...b, ownerIdCard: this.crypto.decrypt(b.ownerIdCard) })),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   async verifyBusiness(id: string) {
     const business = await this.prisma.business.findUnique({ where: { id } });
     if (!business) throw new NotFoundException('Hộ kinh doanh không tồn tại');
-    return this.prisma.business.update({
+    const updated = await this.prisma.business.update({
       where: { id },
       data: { status: BusinessStatus.VERIFIED },
     });
+    return { ...updated, ownerIdCard: this.crypto.decrypt(updated.ownerIdCard) };
   }
 
   async rejectBusiness(id: string) {
     const business = await this.prisma.business.findUnique({ where: { id } });
     if (!business) throw new NotFoundException('Hộ kinh doanh không tồn tại');
-    return this.prisma.business.update({
+    const updated = await this.prisma.business.update({
       where: { id },
       data: { status: BusinessStatus.REJECTED },
     });
+    return { ...updated, ownerIdCard: this.crypto.decrypt(updated.ownerIdCard) };
   }
 
   // ── Quản lý Gian Hàng (Store Management) ───────────────────────────
   async getUnattachedBusinesses() {
-    return this.prisma.business.findMany({
+    const items = await this.prisma.business.findMany({
       where: {
         status: BusinessStatus.VERIFIED,
         store: null,
@@ -184,6 +211,7 @@ export class AdminService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    return items.map((b) => ({ ...b, ownerIdCard: this.crypto.decrypt(b.ownerIdCard) }));
   }
 
   async createStoreByAdmin(dto: {
@@ -221,19 +249,30 @@ export class AdminService {
       slug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
-    return this.prisma.store.create({
-      data: {
-        businessId: dto.businessId,
-        name: dto.name,
-        slug,
-        description: dto.description || null,
-        status: dto.status || StoreStatus.ACTIVE,
-      },
-      include: {
-        business: { include: { member: { include: { user: { select: { fullName: true, email: true } } } } } },
-        _count: { select: { products: true, orders: true } },
-      },
-    });
+    return this.prisma.store
+      .create({
+        data: {
+          businessId: dto.businessId,
+          name: dto.name,
+          slug,
+          description: dto.description || null,
+          status: dto.status || StoreStatus.ACTIVE,
+        },
+        include: {
+          business: { include: { member: { include: { user: { select: { fullName: true, email: true } } } } } },
+          _count: { select: { products: true, orders: true } },
+        },
+      })
+      .then((store) => ({
+        ...store,
+        business: { ...store.business, ownerIdCard: this.crypto.decrypt(store.business.ownerIdCard) },
+      }));
+  }
+
+  /** Giải mã ownerIdCard trong business lồng bên trong 1 store (dùng ở các hàm quản lý Store) */
+  private decryptStoreBusiness<T extends { business: { ownerIdCard: string } | null }>(store: T): T {
+    if (!store.business) return store;
+    return { ...store, business: { ...store.business, ownerIdCard: this.crypto.decrypt(store.business.ownerIdCard) } };
   }
 
   async updateStoreByAdmin(
@@ -249,7 +288,7 @@ export class AdminService {
     if (!store) throw new NotFoundException('Gian hàng không tồn tại');
 
     // Mã / Slug gian hàng là cố định do hệ thống tự động phát sinh, không cho phép sửa
-    return this.prisma.store.update({
+    const updated = await this.prisma.store.update({
       where: { id },
       data: {
         ...(dto.name ? { name: dto.name } : {}),
@@ -261,6 +300,7 @@ export class AdminService {
         _count: { select: { products: true, orders: true } },
       },
     });
+    return this.decryptStoreBusiness(updated);
   }
 
   async deleteStoreByAdmin(id: string) {
@@ -303,7 +343,7 @@ export class AdminService {
       this.prisma.store.count({ where }),
     ]);
 
-    return { items, total, page, pageSize };
+    return { items: items.map((s) => this.decryptStoreBusiness(s)), total, page, pageSize };
   }
 
   async getStoreDetail(id: string) {
@@ -315,7 +355,7 @@ export class AdminService {
       },
     });
     if (!store) throw new NotFoundException('Gian hàng không tồn tại');
-    return store;
+    return this.decryptStoreBusiness(store);
   }
 
   async suspendStore(id: string) {

@@ -15,6 +15,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/payouts', label: '💸 Chi trả Hoa hồng' },
     { href: '/admin/reconciliation', label: '⚖️ Đối soát Thanh toán' },
     { href: '/admin/audit-logs', label: '📜 Audit Logs' },
+    { href: '/admin/security', label: '🔐 Bảo mật 2FA' },
+    { href: '/admin/qa-test', label: '🧪 QA Test' },
   ];
 
   return (

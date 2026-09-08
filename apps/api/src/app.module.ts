@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import configuration from './config/configuration';
 
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { CryptoModule } from './common/crypto/crypto.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { MembersModule } from './modules/members/members.module';
@@ -45,6 +46,7 @@ import { NotificationModule } from './modules/notification/notification.module';
     // 20 request/phút/IP; các route nhạy cảm (login, mock/simulate) siết chặt hơn bằng @Throttle().
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
     PrismaModule,
+    CryptoModule,
     RedisModule,
     IdentityModule,
     MembersModule,

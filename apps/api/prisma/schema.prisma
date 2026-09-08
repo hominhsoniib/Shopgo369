@@ -37,6 +37,12 @@ model User {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
+  // 2FA (TOTP) — bắt buộc theo spec mục 7.2 cho Admin/Super Admin (audit finding #8).
+  // twoFactorSecret lưu base32 secret CHƯA mã hoá riêng (đã nằm sau DB access control +
+  // là secret luân chuyển được nếu lộ — khác CCCD là định danh cố định của 1 con người thật).
+  twoFactorSecret  String?  @map("two_factor_secret")
+  twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
+
   roles        UserRole[]
   addresses    UserAddress[]
   member       Member?
@@ -172,7 +178,8 @@ model Business {
   memberId       String         @unique @map("member_id")
   businessName   String         @map("business_name")
   taxCode        String?        @unique @map("tax_code")
-  ownerIdCard    String         @map("owner_id_card") // CCCD — nên mã hoá ở app-level khi triển khai thật
+  ownerIdCard    String         @map("owner_id_card") // CCCD — mã hoá AES-256-GCM ở app-level (FieldEncryptionService), xem migrate-encrypt-owner-id-card.ts
+  ownerIdCardHash String?       @map("owner_id_card_hash") // SHA-256(CCCD đã chuẩn hoá) — cho phép tra cứu CHÍNH XÁC (không hỗ trợ contains) mà không cần giải mã hàng loạt
   address        String
   status         BusinessStatus @default(DRAFT)
   createdAt      DateTime       @default(now()) @map("created_at")
@@ -182,6 +189,7 @@ model Business {
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
   store  Store?
 
+  @@index([ownerIdCardHash])
   @@map("businesses")
 }
 

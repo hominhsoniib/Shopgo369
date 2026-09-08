@@ -56,7 +56,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
 
-    throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại tài khoản Admin (Mật khẩu mặc định: ChangeMe@369).');
+    throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
   }
 
   if (!res.ok) {

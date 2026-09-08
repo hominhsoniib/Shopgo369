@@ -146,7 +146,11 @@ export class CommissionService {
 
   async getMyCommissions(userId: string) {
     const member = await this.prisma.member.findUnique({ where: { userId } });
-    if (!member) return { transactions: [], payouts: [] };
+    // isMember phân biệt "chưa đăng ký thành viên" với "đã là thành viên nhưng
+    // chưa phát sinh hoa hồng nào" — trước đây cả 2 trường hợp đều trả cùng
+    // { transactions: [], payouts: [] } nên FE không phân biệt được để hiện
+    // đúng UI (nudge đăng ký vs. trạng thái rỗng bình thường).
+    if (!member) return { isMember: false, transactions: [], payouts: [] };
 
     const [transactions, payouts] = await this.prisma.$transaction([
       this.prisma.commissionTransaction.findMany({
@@ -159,6 +163,6 @@ export class CommissionService {
       }),
     ]);
 
-    return { transactions, payouts };
+    return { isMember: true, transactions, payouts };
   }
 }

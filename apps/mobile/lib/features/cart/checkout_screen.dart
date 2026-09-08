@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
@@ -18,6 +19,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _districtController = TextEditingController();
   final _wardController = TextEditingController();
   final _addressLineController = TextEditingController();
+  final _promoCodeController = TextEditingController();
 
   List<dynamic> _shippingMethods = [];
   String? _selectedShippingMethodId;
@@ -32,6 +34,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _loadShippingMethods();
+  }
+
+  @override
+  void dispose() {
+    _receiverController.dispose();
+    _phoneController.dispose();
+    _provinceController.dispose();
+    _districtController.dispose();
+    _wardController.dispose();
+    _addressLineController.dispose();
+    _promoCodeController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadShippingMethods() async {
@@ -81,6 +95,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         },
         'shippingMethodId': _selectedShippingMethodId,
         'paymentMethod': _paymentMethod,
+        if (_promoCodeController.text.trim().isNotEmpty)
+          'promoCode': _promoCodeController.text.trim(),
       });
 
       final orders = response.data as List;
@@ -92,9 +108,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
 
       if (mounted) context.go('/orders/${firstOrder['id']}');
-    } catch (e) {
+    } on DioException catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Đặt hàng thất bại — vui lòng thử lại');
+      final message = (e.response?.data is Map) ? e.response?.data['message'] : null;
+      setState(() => _error = message?.toString() ?? 'Đặt hàng thất bại — vui lòng thử lại');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -157,6 +174,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       .toList(),
                 ),
               ),
+            const SizedBox(height: 16),
+            const Text('Mã khuyến mãi', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _promoCodeController,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Mã khuyến mãi (không bắt buộc)',
+                hintText: 'Nhập mã do người bán cung cấp',
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 16),
             const Text('Thanh toán', style: TextStyle(fontWeight: FontWeight.bold)),
             RadioGroup<String>(

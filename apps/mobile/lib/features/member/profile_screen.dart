@@ -299,6 +299,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/member/points'),
         ),
+        const SizedBox(height: 8),
+        ListTile(
+          tileColor: Colors.grey[100],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          leading: const Icon(Icons.attach_money),
+          title: const Text('Hoa hồng giới thiệu'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/member/commission'),
+        ),
 
         const SizedBox(height: 20),
         const Divider(),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/api_client.dart';
 
@@ -40,17 +41,32 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     final overview = _overview!;
     return Scaffold(
       appBar: AppBar(title: const Text('Seller Center')),
-      body: GridView.count(
+      body: ListView(
         padding: const EdgeInsets.all(16),
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.4,
         children: [
-          _StatCard(label: 'Doanh thu', value: currency.format(overview['revenue']), highlight: true),
-          _StatCard(label: 'Tổng đơn', value: '${overview['totalOrders']}'),
-          _StatCard(label: 'Đơn cần xử lý', value: '${overview['pendingOrders']}', warn: true),
-          _StatCard(label: 'Đơn tính doanh thu', value: '${overview['revenueOrderCount']}'),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.4,
+            children: [
+              _StatCard(label: 'Doanh thu', value: currency.format(overview['revenue']), highlight: true),
+              _StatCard(label: 'Tổng đơn', value: '${overview['totalOrders']}'),
+              _StatCard(label: 'Đơn cần xử lý', value: '${overview['pendingOrders']}', warn: true),
+              _StatCard(label: 'Đơn tính doanh thu', value: '${overview['revenueOrderCount']}'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ListTile(
+            tileColor: Colors.grey[100],
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: const Icon(Icons.local_offer_outlined),
+            title: const Text('Quản lý mã khuyến mãi'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/seller/promotions'),
+          ),
         ],
       ),
     );

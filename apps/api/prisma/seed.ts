@@ -307,6 +307,71 @@ async function main() {
     });
   }
 
+  // P4 — Notification templates (mã phải khớp NotificationTemplateCode ở
+  // apps/api/src/modules/notification/notification.constants.ts). Đây là dữ
+  // liệu cấu hình (đổi nội dung không cần deploy code), không phải seed demo.
+  const notificationTemplates: { code: string; titleTemplate: string; bodyTemplate: string }[] = [
+    {
+      code: 'ORDER_PAID',
+      titleTemplate: 'Thanh toán thành công',
+      bodyTemplate: 'Đơn hàng {{orderCode}} đã được thanh toán. Người bán sẽ sớm xác nhận và đóng gói.',
+    },
+    {
+      code: 'ORDER_CONFIRMED',
+      titleTemplate: 'Đơn hàng đã được xác nhận',
+      bodyTemplate: 'Người bán đã xác nhận đơn {{orderCode}} và đang chuẩn bị hàng cho bạn.',
+    },
+    {
+      code: 'ORDER_SHIPPING',
+      titleTemplate: 'Đơn hàng đang được giao',
+      bodyTemplate: 'Đơn {{orderCode}} đang trên đường giao tới bạn.',
+    },
+    {
+      code: 'ORDER_COMPLETED',
+      titleTemplate: 'Đơn hàng đã hoàn tất',
+      bodyTemplate: 'Đơn {{orderCode}} đã giao thành công. Cảm ơn bạn đã mua sắm tại 369!',
+    },
+    {
+      code: 'ORDER_CANCELLED',
+      titleTemplate: 'Đơn hàng đã bị huỷ',
+      bodyTemplate: 'Đơn {{orderCode}} đã bị huỷ.',
+    },
+    {
+      code: 'REFUND_APPROVED',
+      titleTemplate: 'Yêu cầu hoàn tiền đã được duyệt',
+      bodyTemplate: 'Yêu cầu hoàn tiền {{amount}}đ cho đơn {{orderCode}} đã được duyệt.',
+    },
+    {
+      code: 'REFUND_REJECTED',
+      titleTemplate: 'Yêu cầu hoàn tiền bị từ chối',
+      bodyTemplate: 'Yêu cầu hoàn tiền cho đơn {{orderCode}} đã bị từ chối. Xem chi tiết trong ứng dụng.',
+    },
+    {
+      code: 'COMMISSION_APPROVED',
+      titleTemplate: 'Hoa hồng đã được duyệt',
+      bodyTemplate: 'Bạn vừa được duyệt {{amount}}đ hoa hồng giới thiệu từ đơn {{orderCode}}.',
+    },
+    {
+      code: 'POINTS_EARNED',
+      titleTemplate: 'Bạn vừa nhận điểm thưởng',
+      bodyTemplate: 'Bạn được cộng {{points}} điểm từ đơn hàng {{orderCode}}.',
+    },
+    {
+      code: 'MEMBER_LEVEL_UP',
+      titleTemplate: 'Chúc mừng bạn đã lên hạng!',
+      bodyTemplate: 'Bạn vừa lên hạng thành viên "{{levelName}}". Cảm ơn bạn đã đồng hành cùng 369!',
+    },
+  ];
+
+  for (const t of notificationTemplates) {
+    await prisma.notificationTemplate.upsert({
+      where: { code: t.code },
+      update: { titleTemplate: t.titleTemplate, bodyTemplate: t.bodyTemplate },
+      create: { code: t.code, channel: 'PUSH', titleTemplate: t.titleTemplate, bodyTemplate: t.bodyTemplate },
+    });
+  }
+  console.log(`✅ Seed ${notificationTemplates.length} notification templates.`);
+
   console.log('✅ Seed hoàn tất.');
   if (adminPassword.isDefault || sellerPassword.isDefault) {
     console.log(

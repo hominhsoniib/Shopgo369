@@ -20,6 +20,9 @@ function makeMockAccounting() {
 function makeMockInventory() {
   return { restockFromRefund: jest.fn() };
 }
+function makeMockNotification() {
+  return { notify: jest.fn() };
+}
 
 const CUSTOMER_ID = 'user-1';
 const SELLER_ID = 'seller-1';
@@ -40,7 +43,7 @@ describe('RefundService.createRefund — khách hàng yêu cầu hoàn tiền', 
 
   beforeEach(() => {
     prisma = makeMockPrisma();
-    service = new RefundService(prisma, makeMockOrders() as any, makeMockAccounting() as any, makeMockInventory() as any);
+    service = new RefundService(prisma, makeMockOrders() as any, makeMockAccounting() as any, makeMockInventory() as any, makeMockNotification() as any);
   });
 
   it('throw BadRequestException nếu không nêu lý do', async () => {
@@ -141,7 +144,7 @@ describe('RefundService.approveRefund — duyệt hoàn tiền, chống race con
     orders = makeMockOrders();
     accounting = makeMockAccounting();
     inventory = makeMockInventory();
-    service = new RefundService(prisma, orders as any, accounting as any, inventory as any);
+    service = new RefundService(prisma, orders as any, accounting as any, inventory as any, makeMockNotification() as any);
   });
 
   it('throw ForbiddenException nếu actor không phải chủ store và không phải admin', async () => {
@@ -216,7 +219,7 @@ describe('RefundService.rejectRefund', () => {
 
   beforeEach(() => {
     prisma = makeMockPrisma();
-    service = new RefundService(prisma, makeMockOrders() as any, makeMockAccounting() as any, makeMockInventory() as any);
+    service = new RefundService(prisma, makeMockOrders() as any, makeMockAccounting() as any, makeMockInventory() as any, makeMockNotification() as any);
   });
 
   it('throw ForbiddenException nếu actor không có quyền', async () => {

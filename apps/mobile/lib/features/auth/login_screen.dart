@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import '../../core/secure_storage.dart';
+import '../../core/push/fcm_service.dart';
 
 /// Màn hình đăng nhập — gọi CÙNG endpoint /auth/login với Web
 /// (apps/web/app/(auth)/login/page.tsx) — hành vi backend nhất quán.
@@ -33,6 +35,9 @@ class _LoginScreenState extends State<LoginScreen> {
         accessToken: response.data['accessToken'],
         refreshToken: response.data['refreshToken'],
       );
+      // P4 — đăng ký device token cho push NGAY sau khi có accessToken.
+      // Không await chặn điều hướng — chạy nền, tự nuốt lỗi (xem FcmService).
+      unawaited(FcmService.instance.registerCurrentDevice());
       if (mounted) context.go('/');
     } catch (e) {
       setState(() => _error = 'Đăng nhập thất bại — kiểm tra lại email/mật khẩu');

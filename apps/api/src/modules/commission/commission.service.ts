@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CommissionStatus, ExpenseCategory, PayoutStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationTemplateCode } from '../notification/notification.constants';
 
 const HOLD_DAYS = 10; // Mục 4.3 spec: giữ 7-14 ngày — chọn 10 làm mặc định cấu hình được
 
@@ -12,6 +14,7 @@ export class CommissionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -78,7 +81,7 @@ export class CommissionService {
   async approveMaturedCommissions(): Promise<number> {
     const matured = await this.prisma.commissionTransaction.findMany({
       where: { status: CommissionStatus.PENDING, holdUntil: { lte: new Date() } },
-      include: { order: true },
+      include: { order: true, referrer: true },
     });
 
     let approvedCount = 0;
@@ -109,6 +112,11 @@ export class CommissionService {
         }),
       ]);
       approvedCount++;
+
+      void this.notificationService.notify(commission.referrer.userId, NotificationTemplateCode.COMMISSION_APPROVED, {
+        amount: Number(commission.amount).toLocaleString('vi-VN'),
+        orderCode: commission.order.orderCode,
+      });
     }
 
     if (approvedCount > 0) this.logger.log(`Đã duyệt ${approvedCount} hoa hồng đến hạn`);

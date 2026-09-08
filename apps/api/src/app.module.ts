@@ -34,6 +34,9 @@ import { CommissionModule } from './modules/commission/commission.module';
 import { PointsModule } from './modules/points/points.module';
 import { LearningModule } from './modules/learning/learning.module';
 
+// P4 — Push Notification
+import { NotificationModule } from './modules/notification/notification.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
@@ -65,6 +68,8 @@ import { LearningModule } from './modules/learning/learning.module';
     CommissionModule,
     PointsModule,
     LearningModule,
+    // P4
+    NotificationModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

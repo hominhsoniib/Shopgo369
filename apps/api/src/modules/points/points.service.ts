@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationTemplateCode } from '../notification/notification.constants';
 
 @Injectable()
 export class PointsService {
@@ -10,6 +12,7 @@ export class PointsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly notificationService: NotificationService,
   ) {
     this.pointsPerVnd = parseInt(this.config.get('POINTS_PER_VND') ?? '10000', 10);
   }
@@ -43,6 +46,11 @@ export class PointsService {
 
     await this.recalculateLevel(member.id);
     this.logger.log(`Cộng ${earnedPoints} điểm cho member ${member.id} từ đơn ${order.orderCode}`);
+
+    void this.notificationService.notify(order.userId, NotificationTemplateCode.POINTS_EARNED, {
+      points: earnedPoints,
+      orderCode: order.orderCode,
+    });
   }
 
   /** Tự động nâng hạng thành viên dựa trên tổng điểm hiện tại (Mục 5.3, 6 spec: Level) */
@@ -56,6 +64,10 @@ export class PointsService {
     if (eligibleLevel && eligibleLevel.id !== member.levelId) {
       await this.prisma.member.update({ where: { id: memberId }, data: { levelId: eligibleLevel.id } });
       this.logger.log(`Member ${memberId} lên hạng "${eligibleLevel.name}"`);
+
+      void this.notificationService.notify(member.userId, NotificationTemplateCode.MEMBER_LEVEL_UP, {
+        levelName: eligibleLevel.name,
+      });
     }
   }
 

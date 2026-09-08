@@ -51,6 +51,7 @@ class _ShopHomeScreenState extends State<ShopHomeScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.school_outlined), onPressed: () => context.push('/learning')),
+          IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () => context.push('/notifications')),
           IconButton(icon: const Icon(Icons.person_outline), onPressed: () => context.push('/member/profile')),
           IconButton(icon: const Icon(Icons.shopping_cart), onPressed: () => context.push('/cart')),
         ],

@@ -41,6 +41,9 @@ model User {
   addresses    UserAddress[]
   member       Member?
   auditLogs    AuditLog[]
+  deviceTokens         DeviceToken[]
+  notificationLogs     NotificationLog[]
+  notificationPreference NotificationPreference?
 
   @@map("users")
 }
@@ -935,4 +938,101 @@ model MemberLessonCompletion {
 
   @@unique([memberId, lessonId])
   @@map("member_lesson_completions")
+}
+
+// ============================================================
+// P4 — Notification (Push) — dựng từ đầu, chưa từng có trong spec gốc
+// mục 5.3 (bảng notification_templates/logs/preferences được đặc tả nhưng
+// chưa implement — xem SHOPGO-369 audit mục 19). Thiết kế theo đúng pattern
+// Adapter đã dùng cho Payment (PaymentGatewayAdapter): PushProviderAdapter
+// có 2 implementation — NoopPushProvider (an toàn khi CHƯA cấu hình Firebase,
+// tương tự MockPaymentGateway) và FcmPushProvider (khi có service account).
+// ============================================================
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED // preference tắt kênh này, hoặc user không có device token nào
+}
+
+/// FCM token của 1 thiết bị — 1 user có thể đăng nhập nhiều thiết bị cùng lúc
+model DeviceToken {
+  id         String         @id @default(uuid())
+  userId     String         @map("user_id")
+  token      String         @unique
+  platform   DevicePlatform
+  createdAt  DateTime       @default(now()) @map("created_at")
+  lastUsedAt DateTime       @default(now()) @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+/// Mẫu nội dung thông báo theo `code` (vd: ORDER_PAID, REFUND_APPROVED) — cho
+/// phép đổi nội dung không cần deploy lại code. `{{variable}}` render runtime.
+model NotificationTemplate {
+  id            String              @id @default(uuid())
+  code          String              @unique
+  channel       NotificationChannel
+  titleTemplate String              @map("title_template")
+  bodyTemplate  String              @map("body_template")
+  isActive      Boolean             @default(true) @map("is_active")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  @@map("notification_templates")
+}
+
+/// Lịch sử gửi — đồng thời dùng làm nguồn cho "Danh sách thông báo trong app"
+/// (in-app inbox), không chỉ log kỹ thuật.
+model NotificationLog {
+  id           String              @id @default(uuid())
+  userId       String              @map("user_id")
+  templateCode String              @map("template_code")
+  channel      NotificationChannel
+  title        String
+  body         String
+  data         Json?
+  status       NotificationStatus  @default(PENDING)
+  errorMessage String?             @map("error_message")
+  isRead       Boolean             @default(false) @map("is_read")
+  readAt       DateTime?           @map("read_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  sentAt       DateTime?           @map("sent_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, isRead])
+  @@map("notification_logs")
+}
+
+/// Bật/tắt theo nhóm — mỗi templateCode được gán vào 1 nhóm trong
+/// `notification.constants.ts` (NOTIFICATION_PREFERENCE_GROUP).
+model NotificationPreference {
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  orderUpdates Boolean  @default(true) @map("order_updates")
+  promotions   Boolean  @default(true)
+  commission   Boolean  @default(true)
+  learning     Boolean  @default(true)
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }

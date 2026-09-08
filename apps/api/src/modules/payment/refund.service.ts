@@ -9,6 +9,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
 import { AccountingService } from '../accounting/accounting.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationTemplateCode } from '../notification/notification.constants';
 
 /**
  * Refund API (bổ sung sau Phase 2) — cho phép khách hàng yêu cầu hoàn tiền
@@ -37,6 +39,7 @@ export class RefundService {
     private readonly ordersService: OrdersService,
     private readonly accountingService: AccountingService,
     private readonly inventoryService: InventoryService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   /** Khách hàng yêu cầu hoàn tiền cho đơn của chính mình */
@@ -141,6 +144,11 @@ export class RefundService {
       await this.inventoryService.restockFromRefund(order.id);
     }
 
+    void this.notificationService.notify(order.userId, NotificationTemplateCode.REFUND_APPROVED, {
+      orderCode: order.orderCode,
+      amount: Number(refund.amount).toLocaleString('vi-VN'),
+    });
+
     return this.prisma.refund.findUniqueOrThrow({ where: { id: refundId } });
   }
 
@@ -167,6 +175,10 @@ export class RefundService {
         'Yêu cầu hoàn tiền không còn ở trạng thái PENDING (đã được xử lý trước đó)',
       );
     }
+
+    void this.notificationService.notify(order.userId, NotificationTemplateCode.REFUND_REJECTED, {
+      orderCode: order.orderCode,
+    });
 
     return this.prisma.refund.findUniqueOrThrow({ where: { id: refundId } });
   }

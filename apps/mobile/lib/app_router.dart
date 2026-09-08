@@ -14,6 +14,7 @@ import 'features/member/commission_screen.dart';
 import 'features/learning/courses_list_screen.dart';
 import 'features/learning/course_detail_screen.dart';
 import 'features/seller/seller_promotions_screen.dart';
+import 'features/notifications/notification_list_screen.dart';
 
 /// Cấu trúc route được ánh xạ TƯƠNG ỨNG với URL Web (Mục 5.4 spec) để giữ
 /// tư duy điều hướng nhất quán giữa Web ↔ Mobile: /p/{slug} ↔ /products/{slug},
@@ -46,5 +47,6 @@ final appRouter = GoRouter(
       path: '/learning/courses/:id',
       builder: (context, state) => CourseDetailScreen(courseId: state.pathParameters['id']!),
     ),
+    GoRoute(path: '/notifications', builder: (context, state) => const NotificationListScreen()),
   ],
 );

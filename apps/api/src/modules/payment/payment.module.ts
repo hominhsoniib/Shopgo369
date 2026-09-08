@@ -10,9 +10,10 @@ import { ReconciliationCron } from './reconciliation.cron';
 import { OrdersModule } from '../orders/orders.module';
 import { AccountingModule } from '../accounting/accounting.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [OrdersModule, AccountingModule, InventoryModule],
+  imports: [OrdersModule, AccountingModule, InventoryModule, NotificationModule],
   controllers: [PaymentController, WebhooksController, RefundController],
   providers: [PaymentService, RefundService, MockPaymentGateway, ReconciliationService, ReconciliationCron],
   exports: [PaymentService, RefundService, ReconciliationService],

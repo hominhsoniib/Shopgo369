@@ -18,6 +18,8 @@ dependencies:
   cached_network_image: ^3.3.1
   flutter_secure_storage_platform_interface: ^1.1.2
   url_launcher: ^6.3.1     # mở link video bài học (LearningLesson.videoUrl) ra ngoài app
+  firebase_core: ^2.32.0   # P4 — bắt buộc trước firebase_messaging, khởi tạo ở main.dart
+  firebase_messaging: ^14.9.4 # P4 — nhận push từ backend (module notification)
 
 dev_dependencies:
   flutter_test:

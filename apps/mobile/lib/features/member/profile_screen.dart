@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import '../../core/secure_storage.dart';
+import '../../core/push/fcm_service.dart';
 
 /// Member Center — Hồ sơ thành viên 369. Cùng dữ liệu với Web
 /// (apps/web/app/(member)/member/profile — hiện là placeholder tĩnh, mobile
@@ -118,6 +119,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
+    // P4 — huỷ device token TRƯỚC khi xoá accessToken (API cần Bearer token
+    // hợp lệ để biết xoá token của user nào).
+    await FcmService.instance.unregisterCurrentDevice();
     await SecureStorageService().clear();
     if (mounted) context.go('/login');
   }

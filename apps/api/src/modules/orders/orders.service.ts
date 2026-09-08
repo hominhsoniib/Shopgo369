@@ -10,7 +10,21 @@ import { PromotionsService } from '../promotions/promotions.service';
 import { AccountingService } from '../accounting/accounting.service';
 import { CommissionService } from '../commission/commission.service';
 import { PointsService } from '../points/points.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationTemplateCode } from '../notification/notification.constants';
 import { CheckoutDto } from './dto/checkout.dto';
+
+/** Map OrderStatus → template thông báo (P4). Trạng thái không có trong map
+ * này (PENDING_PAYMENT, PENDING_CONFIRM, PACKED, PAYMENT_FAILED) cố tình
+ * KHÔNG thông báo push — hoặc là trạng thái trung gian, hoặc buyer đã biết
+ * ngay tại lúc thao tác (không cần push thêm). */
+const ORDER_STATUS_NOTIFICATION_MAP: Partial<Record<OrderStatus, NotificationTemplateCode>> = {
+  [OrderStatus.PAID]: NotificationTemplateCode.ORDER_PAID,
+  [OrderStatus.CONFIRMED]: NotificationTemplateCode.ORDER_CONFIRMED,
+  [OrderStatus.SHIPPING]: NotificationTemplateCode.ORDER_SHIPPING,
+  [OrderStatus.COMPLETED]: NotificationTemplateCode.ORDER_COMPLETED,
+  [OrderStatus.CANCELLED]: NotificationTemplateCode.ORDER_CANCELLED,
+};
 
 const ORDER_PAYMENT_TIMEOUT_MINUTES = parseInt(
   process.env.ORDER_PAYMENT_TIMEOUT_MINUTES ?? '15',
@@ -32,6 +46,7 @@ export class OrdersService {
     private readonly accountingService: AccountingService,
     private readonly commissionService: CommissionService,
     private readonly pointsService: PointsService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -372,13 +387,25 @@ export class OrdersService {
 
   private async transitionStatus(orderId: string, toStatus: OrderStatus, userId: string | undefined, note: string) {
     const order = await this.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.order.update({ where: { id: orderId }, data: { status: toStatus } });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.order.update({ where: { id: orderId }, data: { status: toStatus } });
       await tx.orderStatusHistory.create({
         data: { orderId, fromStatus: order.status, toStatus, createdBy: userId, note },
       });
-      return updated;
+      return result;
     });
+
+    // P4 — thông báo push cho buyer (order.userId, KHÔNG phải actor `userId`
+    // tham số — actor có thể là seller/admin/hệ thống). `notify()` tự nuốt lỗi,
+    // không cần try/catch ở đây, không chặn transaction đã commit ở trên.
+    const templateCode = ORDER_STATUS_NOTIFICATION_MAP[toStatus];
+    if (templateCode) {
+      void this.notificationService.notify(order.userId, templateCode, {
+        orderCode: order.orderCode,
+      });
+    }
+
+    return updated;
   }
 
   private async assertSellerOwnership(userId: string, orderId: string) {

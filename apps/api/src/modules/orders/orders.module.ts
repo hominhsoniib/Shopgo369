@@ -10,6 +10,7 @@ import { PromotionsModule } from '../promotions/promotions.module';
 import { AccountingModule } from '../accounting/accounting.module';
 import { CommissionModule } from '../commission/commission.module';
 import { PointsModule } from '../points/points.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PointsModule } from '../points/points.module';
     AccountingModule,
     CommissionModule,
     PointsModule,
+    NotificationModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService, OrderTimeoutProcessor],

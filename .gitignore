@@ -6,3 +6,6 @@ dist/
 *.log
 .DS_Store
 /apps/api/generated/
+
+# TypeScript incremental build cache — không nên track, d?i m?i l?n build
+apps/web/tsconfig.tsbuildinfo

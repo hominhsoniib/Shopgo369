@@ -41,13 +41,36 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _updateQuantity(String productId, int quantity) async {
-    await ApiClient().dio.patch('/cart/items/$productId', data: {'quantity': quantity});
-    _load();
+    // quantity phải luôn >= 1. Nếu giảm xuống 0 (hoặc thấp hơn), xoá item
+    // theo đúng behavior của API (DELETE /cart/items/:productId) thay vì
+    // gửi quantity không hợp lệ lên backend.
+    if (quantity < 1) {
+      await _removeItem(productId);
+      return;
+    }
+    try {
+      await ApiClient().dio.patch('/cart/items/$productId', data: {'quantity': quantity});
+      if (!mounted) return;
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không cập nhật được số lượng — vui lòng thử lại')),
+      );
+    }
   }
 
   Future<void> _removeItem(String productId) async {
-    await ApiClient().dio.delete('/cart/items/$productId');
-    _load();
+    try {
+      await ApiClient().dio.delete('/cart/items/$productId');
+      if (!mounted) return;
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không xoá được sản phẩm — vui lòng thử lại')),
+      );
+    }
   }
 
   @override

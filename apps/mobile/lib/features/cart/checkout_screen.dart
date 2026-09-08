@@ -25,6 +25,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _submitting = false;
   String? _error;
 
+  bool _loadingShipping = true;
+  String? _shippingError;
+
   @override
   void initState() {
     super.initState();
@@ -32,14 +35,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _loadShippingMethods() async {
-    final response = await ApiClient().dio.get('/shipping/methods');
     setState(() {
-      _shippingMethods = response.data;
-      if (_shippingMethods.isNotEmpty) _selectedShippingMethodId = _shippingMethods.first['id'];
+      _loadingShipping = true;
+      _shippingError = null;
     });
+    try {
+      final response = await ApiClient().dio.get('/shipping/methods');
+      if (!mounted) return;
+      final data = response.data;
+      final methods = data is List ? data : <dynamic>[];
+      setState(() {
+        _shippingMethods = methods;
+        _selectedShippingMethodId = methods.isNotEmpty ? methods.first['id'] : null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _shippingMethods = [];
+        _selectedShippingMethodId = null;
+        _shippingError = 'Không tải được phương thức vận chuyển — vui lòng thử lại';
+      });
+    } finally {
+      if (mounted) setState(() => _loadingShipping = false);
+    }
   }
 
   Future<void> _submit() async {
+    if (_selectedShippingMethodId == null) {
+      setState(() => _error = 'Vui lòng chọn phương thức vận chuyển trước khi đặt hàng');
+      return;
+    }
     setState(() {
       _submitting = true;
       _error = null;
@@ -68,9 +93,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (mounted) context.go('/orders/${firstOrder['id']}');
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = 'Đặt hàng thất bại — vui lòng thử lại');
     } finally {
-      setState(() => _submitting = false);
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -93,18 +119,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             TextField(controller: _addressLineController, decoration: const InputDecoration(labelText: 'Địa chỉ cụ thể')),
             const SizedBox(height: 16),
             const Text('Vận chuyển', style: TextStyle(fontWeight: FontWeight.bold)),
-            RadioGroup<String>(
-              groupValue: _selectedShippingMethodId,
-              onChanged: (v) => setState(() => _selectedShippingMethodId = v),
-              child: Column(
-                children: _shippingMethods
-                    .map((m) => RadioListTile<String>(
-                          value: m['id'],
-                          title: Text('${m['name']} — ${m['baseFee']}đ'),
-                        ))
-                    .toList(),
+            if (_loadingShipping)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_shippingError != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_shippingError!, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: _loadShippingMethods,
+                      child: const Text('Thử lại'),
+                    ),
+                  ],
+                ),
+              )
+            else if (_shippingMethods.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('Hiện chưa có phương thức vận chuyển khả dụng'),
+              )
+            else
+              RadioGroup<String>(
+                groupValue: _selectedShippingMethodId,
+                onChanged: (v) => setState(() => _selectedShippingMethodId = v),
+                child: Column(
+                  children: _shippingMethods
+                      .map((m) => RadioListTile<String>(
+                            value: m['id'],
+                            title: Text('${m['name']} — ${m['baseFee']}đ'),
+                          ))
+                      .toList(),
+                ),
               ),
-            ),
             const SizedBox(height: 16),
             const Text('Thanh toán', style: TextStyle(fontWeight: FontWeight.bold)),
             RadioGroup<String>(

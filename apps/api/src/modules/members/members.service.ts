@@ -59,7 +59,27 @@ export class MembersService {
   findByUserId(userId: string) {
     return this.prisma.member.findUnique({
       where: { userId },
-      include: { business: { include: { store: true } }, level: true },
+      include: {
+        business: { include: { store: true } },
+        level: true,
+        // Mobile Member Center (Profile/Referral) cần email/fullName/phone —
+        // trước đây findByUserId() không include `user` nên FE phải tự lưu
+        // response login (nhiều nơi không lưu, gây thiếu dữ liệu profile).
+        user: { select: { email: true, fullName: true, phone: true } },
+        // Danh sách người ĐƯỢC user này giới thiệu (tầng 1 duy nhất — Mục 4.3
+        // spec). Quan hệ `referrals` đã có sẵn trong schema (MemberReferral)
+        // nhưng trước đây chưa được include ở đâu cả.
+        referrals: {
+          select: {
+            id: true,
+            memberCode: true,
+            status: true,
+            createdAt: true,
+            user: { select: { fullName: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
   }
 

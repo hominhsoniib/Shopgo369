@@ -10,6 +10,8 @@ import 'features/seller/seller_dashboard_screen.dart';
 import 'features/member/profile_screen.dart';
 import 'features/member/referral_screen.dart';
 import 'features/member/points_screen.dart';
+import 'features/learning/courses_list_screen.dart';
+import 'features/learning/course_detail_screen.dart';
 
 /// Cấu trúc route được ánh xạ TƯƠNG ỨNG với URL Web (Mục 5.4 spec) để giữ
 /// tư duy điều hướng nhất quán giữa Web ↔ Mobile: /p/{slug} ↔ /products/{slug},
@@ -35,5 +37,10 @@ final appRouter = GoRouter(
     GoRoute(path: '/member/profile', builder: (context, state) => const ProfileScreen()),
     GoRoute(path: '/member/referral', builder: (context, state) => const ReferralScreen()),
     GoRoute(path: '/member/points', builder: (context, state) => const PointsScreen()),
+    GoRoute(path: '/learning', builder: (context, state) => const CoursesListScreen()),
+    GoRoute(
+      path: '/learning/courses/:id',
+      builder: (context, state) => CourseDetailScreen(courseId: state.pathParameters['id']!),
+    ),
   ],
 );

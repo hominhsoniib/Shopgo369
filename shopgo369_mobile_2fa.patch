@@ -1,0 +1,615 @@
+diff --git a/apps/api/src/modules/identity/auth/auth.service.ts b/apps/api/src/modules/identity/auth/auth.service.ts
+index 2156fdc..f08bc81 100644
+--- a/apps/api/src/modules/identity/auth/auth.service.ts
++++ b/apps/api/src/modules/identity/auth/auth.service.ts
+@@ -211,6 +211,7 @@ export class AuthService {
+     email: string;
+     fullName: string;
+     roles: { role: { name: RoleName } }[];
++    twoFactorEnabled?: boolean;
+   }) {
+     const roles = this.usersService.extractRoleNames(user as any);
+     const payload = { sub: user.id, email: user.email, roles };
+@@ -232,6 +233,12 @@ export class AuthService {
+         email: user.email,
+         fullName: user.fullName,
+         roles,
++        // Bổ sung cho client (Mobile/Web) biết trạng thái 2FA hiện tại ngay
++        // sau khi đăng nhập — trước đây KHÔNG có field này ở bất kỳ response
++        // nào, khiến UI cài đặt 2FA (Web /admin/security) luôn khởi tạo sai
++        // ở bước "chưa bật" dù tài khoản đã bật thật. Không phải dữ liệu
++        // nhạy cảm (chỉ là boolean), an toàn để trả về.
++        twoFactorEnabled: user.twoFactorEnabled ?? false,
+       },
+     };
+   }
+diff --git a/apps/mobile/lib/app_router.dart b/apps/mobile/lib/app_router.dart
+index 1d12309..d7ed1c3 100644
+--- a/apps/mobile/lib/app_router.dart
++++ b/apps/mobile/lib/app_router.dart
+@@ -1,5 +1,7 @@
+ import 'package:go_router/go_router.dart';
+ import 'features/auth/login_screen.dart';
++import 'features/auth/two_factor_verify_screen.dart';
++import 'features/member/two_factor_settings_screen.dart';
+ import 'features/shop/home_screen.dart';
+ import 'features/shop/product_detail_screen.dart';
+ import 'features/cart/cart_screen.dart';
+@@ -24,6 +26,14 @@ final appRouter = GoRouter(
+   initialLocation: '/',
+   routes: [
+     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
++    GoRoute(
++      path: '/login/2fa',
++      // `extra` chỉ tồn tại khi điều hướng từ trong app (LoginScreen push tới
++      // đây kèm tempToken) — deep-link trực tiếp / hot-restart mất state thì
++      // không có gì để xác thực, phải quay lại màn đăng nhập.
++      redirect: (context, state) => state.extra is String ? null : '/login',
++      builder: (context, state) => TwoFactorVerifyScreen(tempToken: state.extra as String),
++    ),
+     GoRoute(path: '/', builder: (context, state) => const ShopHomeScreen()),
+     GoRoute(
+       path: '/products/:slug',
+@@ -38,6 +48,7 @@ final appRouter = GoRouter(
+     ),
+     GoRoute(path: '/seller/dashboard', builder: (context, state) => const SellerDashboardScreen()),
+     GoRoute(path: '/member/profile', builder: (context, state) => const ProfileScreen()),
++    GoRoute(path: '/member/security', builder: (context, state) => const TwoFactorSettingsScreen()),
+     GoRoute(path: '/member/referral', builder: (context, state) => const ReferralScreen()),
+     GoRoute(path: '/member/points', builder: (context, state) => const PointsScreen()),
+     GoRoute(path: '/member/commission', builder: (context, state) => const CommissionScreen()),
+diff --git a/apps/mobile/lib/core/secure_storage.dart b/apps/mobile/lib/core/secure_storage.dart
+index f127655..15c5a00 100644
+--- a/apps/mobile/lib/core/secure_storage.dart
++++ b/apps/mobile/lib/core/secure_storage.dart
+@@ -6,17 +6,40 @@ class SecureStorageService {
+   static const _storage = FlutterSecureStorage();
+   static const _accessTokenKey = 'accessToken';
+   static const _refreshTokenKey = 'refreshToken';
++  // Cache trạng thái 2FA của tài khoản hiện tại — lấy từ field `user.twoFactorEnabled`
++  // do backend trả về ở /auth/login (khi không cần 2FA) và /auth/2fa/verify-login.
++  // Chỉ dùng để khởi tạo đúng bước hiển thị ở màn hình Cài đặt 2FA (tránh bug
++  // luôn hiển thị "chưa bật" như trang Web /admin/security hiện đang gặp);
++  // KHÔNG dùng cache này để quyết định logic bảo mật nào khác.
++  static const _twoFactorEnabledKey = 'twoFactorEnabledCache';
+ 
+-  Future<void> saveTokens({required String accessToken, required String refreshToken}) async {
++  Future<void> saveTokens({
++    required String accessToken,
++    required String refreshToken,
++    bool? twoFactorEnabled,
++  }) async {
+     await _storage.write(key: _accessTokenKey, value: accessToken);
+     await _storage.write(key: _refreshTokenKey, value: refreshToken);
++    if (twoFactorEnabled != null) {
++      await _storage.write(key: _twoFactorEnabledKey, value: twoFactorEnabled.toString());
++    }
+   }
+ 
+   Future<String?> getAccessToken() => _storage.read(key: _accessTokenKey);
+   Future<String?> getRefreshToken() => _storage.read(key: _refreshTokenKey);
+ 
++  Future<bool> getTwoFactorEnabledCache() async {
++    final value = await _storage.read(key: _twoFactorEnabledKey);
++    return value == 'true';
++  }
++
++  Future<void> setTwoFactorEnabledCache(bool enabled) async {
++    await _storage.write(key: _twoFactorEnabledKey, value: enabled.toString());
++  }
++
+   Future<void> clear() async {
+     await _storage.delete(key: _accessTokenKey);
+     await _storage.delete(key: _refreshTokenKey);
++    await _storage.delete(key: _twoFactorEnabledKey);
+   }
+ }
+diff --git a/apps/mobile/lib/features/auth/login_screen.dart b/apps/mobile/lib/features/auth/login_screen.dart
+index 5533c5d..4a1f3ef 100644
+--- a/apps/mobile/lib/features/auth/login_screen.dart
++++ b/apps/mobile/lib/features/auth/login_screen.dart
+@@ -31,9 +31,22 @@ class _LoginScreenState extends State<LoginScreen> {
+         'email': _emailController.text.trim(),
+         'password': _passwordController.text,
+       });
++      final data = response.data as Map<String, dynamic>;
++
++      // Tài khoản đã bật 2FA (bắt buộc với Admin/Super Admin, tự nguyện với
++      // vai trò khác) — backend CHƯA trả token thật, chỉ trả tempToken sống
++      // 5 phút. Phải sang bước 2 nhập mã OTP trước khi có accessToken.
++      if (data['requiresTwoFactor'] == true) {
++        final tempToken = data['tempToken'] as String;
++        if (mounted) context.push('/login/2fa', extra: tempToken);
++        return;
++      }
++
++      final user = data['user'] as Map<String, dynamic>?;
+       await _storage.saveTokens(
+-        accessToken: response.data['accessToken'],
+-        refreshToken: response.data['refreshToken'],
++        accessToken: data['accessToken'],
++        refreshToken: data['refreshToken'],
++        twoFactorEnabled: user?['twoFactorEnabled'] as bool? ?? false,
+       );
+       // P4 — đăng ký device token cho push NGAY sau khi có accessToken.
+       // Không await chặn điều hướng — chạy nền, tự nuốt lỗi (xem FcmService).
+diff --git a/apps/mobile/lib/features/auth/two_factor_verify_screen.dart b/apps/mobile/lib/features/auth/two_factor_verify_screen.dart
+new file mode 100644
+index 0000000..0383874
+--- /dev/null
++++ b/apps/mobile/lib/features/auth/two_factor_verify_screen.dart
+@@ -0,0 +1,137 @@
++import 'dart:async';
++import 'package:flutter/material.dart';
++import 'package:go_router/go_router.dart';
++import '../../core/api_client.dart';
++import '../../core/secure_storage.dart';
++import '../../core/push/fcm_service.dart';
++
++/// Bước 2 của đăng nhập khi tài khoản đã bật 2FA (Admin/Super Admin bắt
++/// buộc, vai trò khác tự nguyện). Nhận `tempToken` (JWT sống 5 phút, KHÔNG
++/// dùng được cho endpoint nào khác) từ [LoginScreen] qua `extra`, đổi lấy
++/// mã OTP 6 số để nhận token thật — CÙNG endpoint với Web
++/// (`POST /auth/2fa/verify-login`, apps/web/app/(auth)/login/page.tsx).
++class TwoFactorVerifyScreen extends StatefulWidget {
++  const TwoFactorVerifyScreen({super.key, required this.tempToken});
++
++  final String tempToken;
++
++  @override
++  State<TwoFactorVerifyScreen> createState() => _TwoFactorVerifyScreenState();
++}
++
++class _TwoFactorVerifyScreenState extends State<TwoFactorVerifyScreen> {
++  final _codeController = TextEditingController();
++  final _storage = SecureStorageService();
++  String? _error;
++  bool _loading = false;
++
++  Future<void> _handleVerify() async {
++    if (_codeController.text.length != 6 || _loading) return;
++    setState(() {
++      _error = null;
++      _loading = true;
++    });
++    try {
++      final response = await ApiClient().dio.post('/auth/2fa/verify-login', data: {
++        'tempToken': widget.tempToken,
++        'code': _codeController.text,
++      });
++      final data = response.data as Map<String, dynamic>;
++      await _storage.saveTokens(
++        accessToken: data['accessToken'],
++        refreshToken: data['refreshToken'],
++        // Vào được tới đây nghĩa là 2FA chắc chắn đang bật cho tài khoản này.
++        twoFactorEnabled: true,
++      );
++      unawaited(FcmService.instance.registerCurrentDevice());
++      if (mounted) context.go('/');
++    } catch (e) {
++      if (!mounted) return;
++      setState(() {
++        _error = 'Mã xác thực không đúng, hoặc phiên đã hết hạn (5 phút) — thử lại hoặc quay về đăng nhập.';
++        _codeController.clear();
++      });
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  @override
++  void dispose() {
++    _codeController.dispose();
++    super.dispose();
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    return Scaffold(
++      appBar: AppBar(
++        title: const Text('Xác thực 2 lớp'),
++        leading: IconButton(
++          icon: const Icon(Icons.arrow_back),
++          tooltip: 'Quay về đăng nhập',
++          onPressed: () => context.go('/login'),
++        ),
++      ),
++      body: SafeArea(
++        child: Padding(
++          padding: const EdgeInsets.all(24),
++          child: Column(
++            mainAxisAlignment: MainAxisAlignment.center,
++            crossAxisAlignment: CrossAxisAlignment.stretch,
++            children: [
++              const Icon(Icons.shield_outlined, size: 56, color: Colors.red),
++              const SizedBox(height: 16),
++              const Text(
++                'Nhập mã 6 số từ ứng dụng authenticator',
++                textAlign: TextAlign.center,
++                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
++              ),
++              const SizedBox(height: 4),
++              const Text(
++                'Tài khoản này đã bật xác thực 2 lớp (2FA).',
++                textAlign: TextAlign.center,
++                style: TextStyle(color: Colors.grey, fontSize: 13),
++              ),
++              const SizedBox(height: 24),
++              TextField(
++                controller: _codeController,
++                autofocus: true,
++                enabled: !_loading,
++                keyboardType: TextInputType.number,
++                textAlign: TextAlign.center,
++                maxLength: 6,
++                style: const TextStyle(fontSize: 22, letterSpacing: 8, fontWeight: FontWeight.bold),
++                decoration: const InputDecoration(
++                  counterText: '',
++                  border: OutlineInputBorder(),
++                  hintText: '••••••',
++                ),
++                onChanged: (v) {
++                  setState(() {}); // cập nhật trạng thái nút Xác nhận
++                  if (v.length == 6) _handleVerify();
++                },
++              ),
++              if (_error != null) ...[
++                const SizedBox(height: 12),
++                Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red, fontSize: 13)),
++              ],
++              const SizedBox(height: 20),
++              ElevatedButton(
++                onPressed: (_loading || _codeController.text.length != 6) ? null : _handleVerify,
++                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, padding: const EdgeInsets.all(14)),
++                child: _loading
++                    ? const SizedBox(
++                        height: 18,
++                        width: 18,
++                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
++                      )
++                    : const Text('Xác nhận', style: TextStyle(color: Colors.white)),
++              ),
++            ],
++          ),
++        ),
++      ),
++    );
++  }
++}
+diff --git a/apps/mobile/lib/features/member/profile_screen.dart b/apps/mobile/lib/features/member/profile_screen.dart
+index 72f711e..6c91cad 100644
+--- a/apps/mobile/lib/features/member/profile_screen.dart
++++ b/apps/mobile/lib/features/member/profile_screen.dart
+@@ -312,6 +312,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
+           trailing: const Icon(Icons.chevron_right),
+           onTap: () => context.push('/member/commission'),
+         ),
++        const SizedBox(height: 8),
++        ListTile(
++          tileColor: Colors.grey[100],
++          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
++          leading: const Icon(Icons.shield_outlined),
++          title: const Text('Bảo mật · Xác thực 2 lớp (2FA)'),
++          trailing: const Icon(Icons.chevron_right),
++          onTap: () => context.push('/member/security'),
++        ),
+ 
+         const SizedBox(height: 20),
+         const Divider(),
+diff --git a/apps/mobile/lib/features/member/two_factor_settings_screen.dart b/apps/mobile/lib/features/member/two_factor_settings_screen.dart
+new file mode 100644
+index 0000000..0fcd1bb
+--- /dev/null
++++ b/apps/mobile/lib/features/member/two_factor_settings_screen.dart
+@@ -0,0 +1,311 @@
++import 'dart:convert';
++import 'dart:typed_data';
++import 'package:flutter/material.dart';
++import 'package:flutter/services.dart';
++import '../../core/api_client.dart';
++import '../../core/secure_storage.dart';
++
++/// Cài đặt Xác thực 2 lớp (2FA) trên Mobile — cùng 3 bước với Web
++/// (apps/web/app/(admin)/admin/security/page.tsx): idle → setup (quét QR +
++/// nhập mã xác nhận) → done (đã bật, có thể tắt bằng mật khẩu + mã OTP).
++///
++/// Khác Web ở 1 điểm: bước khởi tạo đọc trạng thái đã-bật-hay-chưa từ cache
++/// cục bộ (lưu lúc đăng nhập, xem SecureStorageService) — Web hiện luôn
++/// khởi tạo ở "idle" dù tài khoản đã bật thật, đây là bug đã biết bên Web,
++/// Mobile không lặp lại lỗi này.
++class TwoFactorSettingsScreen extends StatefulWidget {
++  const TwoFactorSettingsScreen({super.key});
++
++  @override
++  State<TwoFactorSettingsScreen> createState() => _TwoFactorSettingsScreenState();
++}
++
++enum _Step { loading, idle, setup, done }
++
++class _TwoFactorSettingsScreenState extends State<TwoFactorSettingsScreen> {
++  final _storage = SecureStorageService();
++  _Step _step = _Step.loading;
++
++  String _qrCodeDataUrl = '';
++  String _secret = '';
++  final _enableCodeController = TextEditingController();
++  final _disablePasswordController = TextEditingController();
++  final _disableCodeController = TextEditingController();
++
++  bool _loading = false;
++  String? _message;
++  String? _error;
++
++  @override
++  void initState() {
++    super.initState();
++    _init();
++  }
++
++  @override
++  void dispose() {
++    _enableCodeController.dispose();
++    _disablePasswordController.dispose();
++    _disableCodeController.dispose();
++    super.dispose();
++  }
++
++  Future<void> _init() async {
++    final enabled = await _storage.getTwoFactorEnabledCache();
++    if (!mounted) return;
++    setState(() => _step = enabled ? _Step.done : _Step.idle);
++  }
++
++  Future<void> _handleSetup() async {
++    setState(() {
++      _error = null;
++      _message = null;
++      _loading = true;
++    });
++    try {
++      final response = await ApiClient().dio.post('/auth/2fa/setup');
++      final data = response.data as Map<String, dynamic>;
++      if (!mounted) return;
++      setState(() {
++        _qrCodeDataUrl = data['qrCodeDataUrl'] as String? ?? '';
++        _secret = data['secret'] as String? ?? '';
++        _step = _Step.setup;
++      });
++    } catch (e) {
++      if (!mounted) return;
++      setState(() => _error = 'Không tạo được mã QR — thử lại sau.');
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  Future<void> _handleEnable() async {
++    if (_enableCodeController.text.length != 6 || _loading) return;
++    setState(() {
++      _error = null;
++      _message = null;
++      _loading = true;
++    });
++    try {
++      await ApiClient().dio.post('/auth/2fa/enable', data: {'code': _enableCodeController.text});
++      await _storage.setTwoFactorEnabledCache(true);
++      if (!mounted) return;
++      setState(() {
++        _message = 'Đã bật xác thực 2 lớp (2FA) thành công. Từ lần đăng nhập tiếp theo bạn sẽ cần nhập mã OTP.';
++        _step = _Step.done;
++        _enableCodeController.clear();
++      });
++    } catch (e) {
++      if (!mounted) return;
++      setState(() => _error = 'Mã xác thực không đúng — kiểm tra lại app authenticator hoặc đồng bộ giờ thiết bị.');
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  Future<void> _handleDisable() async {
++    if (_loading) return;
++    setState(() {
++      _error = null;
++      _message = null;
++      _loading = true;
++    });
++    try {
++      await ApiClient().dio.post('/auth/2fa/disable', data: {
++        'password': _disablePasswordController.text,
++        'code': _disableCodeController.text,
++      });
++      await _storage.setTwoFactorEnabledCache(false);
++      if (!mounted) return;
++      setState(() {
++        _message = 'Đã tắt xác thực 2 lớp (2FA).';
++        _step = _Step.idle;
++        _disablePasswordController.clear();
++        _disableCodeController.clear();
++      });
++    } catch (e) {
++      if (!mounted) return;
++      setState(() => _error = 'Không tắt được 2FA — kiểm tra lại mật khẩu và mã OTP.');
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  Future<void> _copySecret() async {
++    await Clipboard.setData(ClipboardData(text: _secret));
++    if (!mounted) return;
++    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã sao chép mã bí mật')));
++  }
++
++  Uint8List? get _qrBytes {
++    if (_qrCodeDataUrl.isEmpty) return null;
++    try {
++      final base64Part = _qrCodeDataUrl.split(',').last;
++      return base64Decode(base64Part);
++    } catch (_) {
++      return null;
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    return Scaffold(
++      appBar: AppBar(title: const Text('Bảo mật · Xác thực 2 lớp')),
++      body: _step == _Step.loading
++          ? const Center(child: CircularProgressIndicator())
++          : ListView(
++              padding: const EdgeInsets.all(16),
++              children: [
++                const Text(
++                  'Bắt buộc khuyến nghị cho tài khoản Admin/Super Admin — mỗi lần đăng nhập '
++                  'cần thêm mã OTP 6 số từ ứng dụng authenticator (Google Authenticator, Authy, '
++                  'Microsoft Authenticator...), ngay cả khi mật khẩu bị lộ.',
++                  style: TextStyle(color: Colors.grey, fontSize: 13),
++                ),
++                const SizedBox(height: 16),
++                if (_message != null) _Banner(text: _message!, color: Colors.green),
++                if (_error != null) _Banner(text: _error!, color: Colors.red),
++                if (_step == _Step.idle) _buildIdle(),
++                if (_step == _Step.setup) _buildSetup(),
++                if (_step == _Step.done) _buildDone(),
++              ],
++            ),
++    );
++  }
++
++  Widget _buildIdle() {
++    return ElevatedButton(
++      onPressed: _loading ? null : _handleSetup,
++      style: ElevatedButton.styleFrom(backgroundColor: Colors.black87, padding: const EdgeInsets.all(14)),
++      child: _loading
++          ? const SizedBox(
++              height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
++          : const Text('Bắt đầu bật 2FA', style: TextStyle(color: Colors.white)),
++    );
++  }
++
++  Widget _buildSetup() {
++    final qr = _qrBytes;
++    return Column(
++      crossAxisAlignment: CrossAxisAlignment.stretch,
++      children: [
++        const Text('1. Mở app authenticator trên điện thoại → quét mã QR bên dưới (hoặc nhập tay mã bí mật).'),
++        const SizedBox(height: 12),
++        if (qr != null)
++          Center(
++            child: Container(
++              padding: const EdgeInsets.all(8),
++              decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
++              child: Image.memory(qr, width: 200, height: 200, gaplessPlayback: true),
++            ),
++          ),
++        const SizedBox(height: 12),
++        InkWell(
++          onTap: _copySecret,
++          borderRadius: BorderRadius.circular(8),
++          child: Container(
++            padding: const EdgeInsets.all(12),
++            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
++            child: Row(
++              mainAxisAlignment: MainAxisAlignment.center,
++              children: [
++                Flexible(
++                  child: Text(
++                    _secret,
++                    textAlign: TextAlign.center,
++                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
++                  ),
++                ),
++                const SizedBox(width: 6),
++                const Icon(Icons.copy, size: 14, color: Colors.grey),
++              ],
++            ),
++          ),
++        ),
++        const SizedBox(height: 16),
++        const Text('2. Nhập mã 6 số app vừa hiển thị để xác nhận:'),
++        const SizedBox(height: 8),
++        TextField(
++          controller: _enableCodeController,
++          enabled: !_loading,
++          keyboardType: TextInputType.number,
++          textAlign: TextAlign.center,
++          maxLength: 6,
++          style: const TextStyle(fontSize: 20, letterSpacing: 6, fontWeight: FontWeight.bold),
++          decoration: const InputDecoration(counterText: '', border: OutlineInputBorder(), hintText: '123456'),
++          onChanged: (_) => setState(() {}),
++        ),
++        const SizedBox(height: 12),
++        ElevatedButton(
++          onPressed: (_loading || _enableCodeController.text.length != 6) ? null : _handleEnable,
++          style: ElevatedButton.styleFrom(backgroundColor: Colors.black87, padding: const EdgeInsets.all(14)),
++          child: _loading
++              ? const SizedBox(
++                  height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
++              : const Text('Xác nhận và bật 2FA', style: TextStyle(color: Colors.white)),
++        ),
++      ],
++    );
++  }
++
++  Widget _buildDone() {
++    return Column(
++      crossAxisAlignment: CrossAxisAlignment.stretch,
++      children: [
++        const Row(
++          children: [
++            Icon(Icons.check_circle, color: Colors.green, size: 18),
++            SizedBox(width: 6),
++            Text('2FA đang BẬT cho tài khoản này.', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
++          ],
++        ),
++        const SizedBox(height: 8),
++        const Text(
++          'Muốn tắt? Cần xác nhận cả mật khẩu hiện tại lẫn 1 mã OTP còn hiệu lực:',
++          style: TextStyle(color: Colors.grey, fontSize: 13),
++        ),
++        const SizedBox(height: 12),
++        TextField(
++          controller: _disablePasswordController,
++          enabled: !_loading,
++          obscureText: true,
++          decoration: const InputDecoration(labelText: 'Mật khẩu hiện tại', border: OutlineInputBorder()),
++        ),
++        const SizedBox(height: 8),
++        TextField(
++          controller: _disableCodeController,
++          enabled: !_loading,
++          keyboardType: TextInputType.number,
++          textAlign: TextAlign.center,
++          maxLength: 6,
++          decoration: const InputDecoration(counterText: '', labelText: 'Mã OTP 6 số', border: OutlineInputBorder()),
++        ),
++        const SizedBox(height: 12),
++        OutlinedButton(
++          onPressed: _loading ? null : _handleDisable,
++          style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), padding: const EdgeInsets.all(14)),
++          child: _loading
++              ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red))
++              : const Text('Tắt 2FA'),
++        ),
++      ],
++    );
++  }
++}
++
++class _Banner extends StatelessWidget {
++  const _Banner({required this.text, required this.color});
++
++  final String text;
++  final Color color;
++
++  @override
++  Widget build(BuildContext context) {
++    return Container(
++      margin: const EdgeInsets.only(bottom: 12),
++      padding: const EdgeInsets.all(10),
++      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
++      child: Text(text, style: TextStyle(color: color, fontSize: 13)),
++    );
++  }
++}

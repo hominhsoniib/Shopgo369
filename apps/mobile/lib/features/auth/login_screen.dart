@@ -31,9 +31,22 @@ class _LoginScreenState extends State<LoginScreen> {
         'email': _emailController.text.trim(),
         'password': _passwordController.text,
       });
+      final data = response.data as Map<String, dynamic>;
+
+      // Tài khoản đã bật 2FA (bắt buộc với Admin/Super Admin, tự nguyện với
+      // vai trò khác) — backend CHƯA trả token thật, chỉ trả tempToken sống
+      // 5 phút. Phải sang bước 2 nhập mã OTP trước khi có accessToken.
+      if (data['requiresTwoFactor'] == true) {
+        final tempToken = data['tempToken'] as String;
+        if (mounted) context.push('/login/2fa', extra: tempToken);
+        return;
+      }
+
+      final user = data['user'] as Map<String, dynamic>?;
       await _storage.saveTokens(
-        accessToken: response.data['accessToken'],
-        refreshToken: response.data['refreshToken'],
+        accessToken: data['accessToken'],
+        refreshToken: data['refreshToken'],
+        twoFactorEnabled: user?['twoFactorEnabled'] as bool? ?? false,
       );
       // P4 — đăng ký device token cho push NGAY sau khi có accessToken.
       // Không await chặn điều hướng — chạy nền, tự nuốt lỗi (xem FcmService).

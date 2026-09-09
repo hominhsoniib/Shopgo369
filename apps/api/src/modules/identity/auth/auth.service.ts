@@ -211,6 +211,7 @@ export class AuthService {
     email: string;
     fullName: string;
     roles: { role: { name: RoleName } }[];
+    twoFactorEnabled?: boolean;
   }) {
     const roles = this.usersService.extractRoleNames(user as any);
     const payload = { sub: user.id, email: user.email, roles };
@@ -232,6 +233,12 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         roles,
+        // Bổ sung cho client (Mobile/Web) biết trạng thái 2FA hiện tại ngay
+        // sau khi đăng nhập — trước đây KHÔNG có field này ở bất kỳ response
+        // nào, khiến UI cài đặt 2FA (Web /admin/security) luôn khởi tạo sai
+        // ở bước "chưa bật" dù tài khoản đã bật thật. Không phải dữ liệu
+        // nhạy cảm (chỉ là boolean), an toàn để trả về.
+        twoFactorEnabled: user.twoFactorEnabled ?? false,
       },
     };
   }

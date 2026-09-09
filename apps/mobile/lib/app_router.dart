@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'features/auth/login_screen.dart';
+import 'features/auth/two_factor_verify_screen.dart';
+import 'features/member/two_factor_settings_screen.dart';
 import 'features/shop/home_screen.dart';
 import 'features/shop/product_detail_screen.dart';
 import 'features/cart/cart_screen.dart';
@@ -24,6 +26,14 @@ final appRouter = GoRouter(
   initialLocation: '/',
   routes: [
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(
+      path: '/login/2fa',
+      // `extra` chỉ tồn tại khi điều hướng từ trong app (LoginScreen push tới
+      // đây kèm tempToken) — deep-link trực tiếp / hot-restart mất state thì
+      // không có gì để xác thực, phải quay lại màn đăng nhập.
+      redirect: (context, state) => state.extra is String ? null : '/login',
+      builder: (context, state) => TwoFactorVerifyScreen(tempToken: state.extra as String),
+    ),
     GoRoute(path: '/', builder: (context, state) => const ShopHomeScreen()),
     GoRoute(
       path: '/products/:slug',
@@ -38,6 +48,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(path: '/seller/dashboard', builder: (context, state) => const SellerDashboardScreen()),
     GoRoute(path: '/member/profile', builder: (context, state) => const ProfileScreen()),
+    GoRoute(path: '/member/security', builder: (context, state) => const TwoFactorSettingsScreen()),
     GoRoute(path: '/member/referral', builder: (context, state) => const ReferralScreen()),
     GoRoute(path: '/member/points', builder: (context, state) => const PointsScreen()),
     GoRoute(path: '/member/commission', builder: (context, state) => const CommissionScreen()),

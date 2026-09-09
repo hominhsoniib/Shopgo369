@@ -312,6 +312,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/member/commission'),
         ),
+        const SizedBox(height: 8),
+        ListTile(
+          tileColor: Colors.grey[100],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          leading: const Icon(Icons.shield_outlined),
+          title: const Text('Bảo mật · Xác thực 2 lớp (2FA)'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/member/security'),
+        ),
 
         const SizedBox(height: 20),
         const Divider(),

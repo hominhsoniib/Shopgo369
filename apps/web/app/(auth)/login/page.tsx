@@ -45,7 +45,11 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      if ('requiresTwoFactor' in data && data.requiresTwoFactor) {
+      // Chỉ dùng `'requiresTwoFactor' in data` (không thêm `&& data.requiresTwoFactor`)
+      // — property này chỉ tồn tại ở nhánh union đó với type literal `true`, nên
+      // riêng `in` là đủ để phân biệt. Thêm điều kiện && phía sau khiến TypeScript
+      // KHÔNG narrow được `data` ở phần code bên dưới (lỗi TS2339 khi build).
+      if ('requiresTwoFactor' in data) {
         setTempToken(data.tempToken);
         return;
       }

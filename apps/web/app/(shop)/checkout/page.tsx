@@ -161,9 +161,13 @@ export default function CheckoutPage() {
         router.push('/login');
         return;
       }
-      // Demo Vercel Mode: chuyển ngay sang trang xác nhận & theo dõi đơn hàng
-      const mockOrderId = 'ORD-36988888';
-      router.push(`/orders/${mockOrderId}`);
+      // Trước đây nhánh này ("Demo Vercel Mode") NUỐT MỌI lỗi khác (hết hàng,
+      // promo/voucher không hợp lệ, cổng thanh toán lỗi, lỗi mạng...) và tự
+      // điều hướng sang đơn hàng GIẢ "ORD-36988888" — khiến khách tưởng đặt
+      // hàng thành công trong khi đơn thật KHÔNG được tạo. Giờ hiển thị đúng
+      // lỗi thật để khách biết và có thể thử lại (cùng cách `error` state đã
+      // được render sẵn ở dưới form).
+      setError(err.message || 'Đặt hàng thất bại — vui lòng kiểm tra lại thông tin và thử lại.');
     } finally {
       setSubmitting(false);
     }

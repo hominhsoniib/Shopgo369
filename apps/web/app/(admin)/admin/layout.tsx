@@ -2,9 +2,32 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { getCurrentUser, isLoggedIn } from '../../../lib/auth-client';
+
+// Chỉ ADMIN/SUPER_ADMIN được xem giao diện quản trị — khớp với RolesGuard
+// phía API (apps/api/src/modules/admin/admin.controller.ts).
+const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN'];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [checkedAuth, setCheckedAuth] = useState(false);
+
+  useEffect(() => {
+    // Trước đây layout này KHÔNG có bất kỳ guard nào — bất kỳ ai biết URL
+    // /admin/* đều xem được toàn bộ giao diện quản trị (dashboard, KYC, đối
+    // soát...) dù các API bên dưới vẫn có RolesGuard chặn ở tầng dữ liệu.
+    // Đây vẫn là lỗ hổng lộ UI + trải nghiệm sai cho người không có quyền.
+    // Đọc localStorage sau khi mount (không phải lúc render) để tránh
+    // hydration mismatch — cùng pattern với account/change-password/page.tsx.
+    const user = getCurrentUser();
+    const hasAdminRole = !!user && user.roles.some((role) => ADMIN_ROLES.includes(role));
+    if (!isLoggedIn() || !hasAdminRole) {
+      window.location.href = '/login';
+      return;
+    }
+    setCheckedAuth(true);
+  }, []);
 
   const navItems = [
     { href: '/admin/dashboard', label: '📊 Tổng quan' },
@@ -18,6 +41,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/security', label: '🔐 Bảo mật 2FA' },
     { href: '/admin/qa-test', label: '🧪 QA Test' },
   ];
+
+  if (!checkedAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-neutral-400">
+        Đang kiểm tra quyền truy cập...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-900/5 text-neutral-800">

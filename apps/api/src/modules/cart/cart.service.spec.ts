@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CartService } from './cart.service';
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus, StoreStatus } from '@prisma/client';
 
 function makeMockPrisma() {
   const tx = {
@@ -58,7 +58,13 @@ describe('CartService — định danh giỏ hàng (user đăng nhập vs guest)
   });
 
   it('guest vẫn thêm được sản phẩm vào giỏ (addItem) như user thường', async () => {
-    prisma.product.findUnique.mockResolvedValue({ id: 'p1', status: ProductStatus.ACTIVE });
+    // store phải có mặt trong mock — addItem() check product.store.status (chặn
+    // sản phẩm của gian hàng bị khoá) trước khi cho thêm vào giỏ.
+    prisma.product.findUnique.mockResolvedValue({
+      id: 'p1',
+      status: ProductStatus.ACTIVE,
+      store: { status: StoreStatus.ACTIVE },
+    });
     prisma.cart.upsert.mockResolvedValue({ id: 'cart-guest-1' });
 
     await service.addItem({ sessionId: 'guest-uuid-1' }, 'p1', 2);

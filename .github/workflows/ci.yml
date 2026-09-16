@@ -34,7 +34,10 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: apps/api/pnpm-lock.yaml
+          # Monorepo pnpm workspace chỉ có 1 lockfile ở root — không có
+          # apps/api/pnpm-lock.yaml riêng (đường dẫn cũ khiến bước cache
+          # luôn fail vì không resolve được path).
+          cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm prisma:generate
       - name: Run migrations (test DB)
@@ -59,7 +62,8 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: apps/web/pnpm-lock.yaml
+          # Cùng lý do — monorepo chỉ có 1 lockfile ở root.
+          cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm build

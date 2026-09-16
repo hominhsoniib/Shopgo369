@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PaymentStatus, ReconciliationMatchStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MockPaymentGateway } from './gateways/mock-payment.gateway';
-import { GatewayTransactionRecord, PaymentGatewayAdapter } from './gateways/payment-gateway.interface';
+import { PaymentGatewayAdapter } from './gateways/payment-gateway.interface';
 
 export interface ReconciliationSummary {
   date: string;

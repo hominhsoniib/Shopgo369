@@ -161,7 +161,7 @@ export class RefundService {
    * nhập lý do (UX), CHƯA được lưu vào DB. Nếu cần lưu vĩnh viễn, thêm cột
    * `rejectReason String?` vào model Refund + migration riêng.
    */
-  async rejectRefund(actorUserId: string, actorRoles: RoleName[], refundId: string, rejectReason: string) {
+  async rejectRefund(actorUserId: string, actorRoles: RoleName[], refundId: string, _rejectReason: string) {
     const refund = await this.getRefundWithOrder(refundId);
     const order = refund.payment.order;
 

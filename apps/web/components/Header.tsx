@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { AuthUser, clearAuth, getCurrentUser } from '../lib/auth-client';
+import { AuthUser, getCurrentUser, logout } from '../lib/auth-client';
 
 export default function Header() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -22,8 +22,8 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  function handleLogout() {
-    clearAuth();
+  async function handleLogout() {
+    await logout();
     window.location.href = '/';
   }
 

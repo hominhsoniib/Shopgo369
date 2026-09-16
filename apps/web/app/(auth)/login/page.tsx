@@ -54,7 +54,7 @@ export default function LoginPage() {
         return;
       }
 
-      saveAuth(data.accessToken, data.refreshToken, data.user);
+      saveAuth(data.user);
       redirectByRole(data.user.roles || []);
     } catch (err: any) {
       // Đăng nhập thất bại thật (sai mật khẩu, backend lỗi, mất mạng...) —
@@ -80,7 +80,7 @@ export default function LoginPage() {
           body: JSON.stringify({ tempToken, code: otpCode }),
         },
       );
-      saveAuth(data.accessToken, data.refreshToken, data.user);
+      saveAuth(data.user);
       redirectByRole(data.user.roles || []);
     } catch (err: any) {
       setError(err?.message || 'Mã xác thực không đúng.');

@@ -31,7 +31,7 @@ export default function RegisterPage() {
           body: JSON.stringify(phone ? { email, phone, password, fullName } : { email, password, fullName }),
         },
       );
-      saveAuth(data.accessToken, data.refreshToken, data.user);
+      saveAuth(data.user);
       window.location.href = '/'; // full reload — Header (đã mount sẵn trong layout) đọc lại localStorage đúng trạng thái mới
     } catch (err: any) {
       setError(err.message ?? 'Đăng ký thất bại');

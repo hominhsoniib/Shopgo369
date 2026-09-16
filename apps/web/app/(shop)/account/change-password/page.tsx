@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../../../lib/api-client';
-import { clearAuth, isLoggedIn } from '../../../../lib/auth-client';
+import { isLoggedIn, logout } from '../../../../lib/auth-client';
 import PasswordInput from '../../../../components/ui/PasswordInput';
 import Button from '../../../../components/ui/Button';
 import Card from '../../../../components/ui/Card';
@@ -48,10 +48,11 @@ export default function ChangePasswordPage() {
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       setSuccess(true);
-      // Đổi mật khẩu xong, buộc đăng nhập lại bằng mật khẩu mới — an toàn hơn
-      // là giữ nguyên phiên cũ (access token cũ vẫn còn hiệu lực tới khi hết hạn
-      // tự nhiên vì hệ thống dùng JWT stateless, không revoke được ngay lập tức).
-      clearAuth();
+      // Đổi mật khẩu xong, buộc đăng nhập lại bằng mật khẩu mới — gọi logout()
+      // thật (xoá cookie httpOnly phía server) chứ không chỉ xoá cache cục bộ,
+      // vì cookie access/refresh token cũ vẫn còn hiệu lực tới khi hết hạn tự
+      // nhiên nếu không được server xoá chủ động.
+      await logout();
       setTimeout(() => {
         window.location.href = '/login';
       }, 1500);

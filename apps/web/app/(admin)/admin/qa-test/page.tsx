@@ -38,7 +38,11 @@ export default function QaTestConsolePage() {
   const [loginLog, setLoginLog] = useState<string[]>([]);
   const [tempToken, setTempToken] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState('');
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  // Không còn giữ accessToken thủ công — token nằm trong cookie httpOnly do
+  // server đặt sau /auth/login, apiFetch tự động gửi kèm mọi request tiếp
+  // theo (credentials: 'include'). Cờ boolean này chỉ để biết Test 1 đã
+  // đăng nhập xong chưa, mở khoá nút chạy Test 2.
+  const [loggedIn, setLoggedIn] = useState(false);
 
   function log(setter: (fn: (prev: string[]) => string[]) => void, line: string) {
     setter((prev) => [...prev, `${new Date().toLocaleTimeString('vi-VN')}  ${line}`]);
@@ -61,8 +65,8 @@ export default function QaTestConsolePage() {
         setLoginStatus('idle');
         return;
       }
-      log(setLoginLog, `← accessToken nhận được (${data.accessToken.slice(0, 20)}...) — 2FA CHƯA bật cho tài khoản này`);
-      setAccessToken(data.accessToken);
+      log(setLoginLog, '← Đăng nhập thành công (cookie httpOnly đã được server đặt) — 2FA CHƯA bật cho tài khoản này');
+      setLoggedIn(true);
       setLoginStatus('pass');
     } catch (err: any) {
       log(setLoginLog, `✗ Lỗi: ${err?.message || 'không xác định'}`);
@@ -79,8 +83,8 @@ export default function QaTestConsolePage() {
         method: 'POST',
         body: JSON.stringify({ tempToken, code: otpCode }),
       });
-      log(setLoginLog, `← accessToken nhận được sau khi xác thực OTP đúng — luồng 2FA hoạt động end-to-end`);
-      setAccessToken(data.accessToken);
+      log(setLoginLog, '← Xác thực OTP đúng — cookie httpOnly đã được server đặt, luồng 2FA hoạt động end-to-end');
+      setLoggedIn(true);
       setTempToken(null);
       setLoginStatus('pass');
     } catch (err: any) {
@@ -95,18 +99,16 @@ export default function QaTestConsolePage() {
   const [cccdSummary, setCccdSummary] = useState('');
 
   async function runCccdTest() {
-    if (!accessToken) {
-      setCccdSummary('⚠️ Cần đăng nhập thành công ở Test 1 trước (accessToken chưa có).');
+    if (!loggedIn) {
+      setCccdSummary('⚠️ Cần đăng nhập thành công ở Test 1 trước.');
       setCccdStatus('fail');
       return;
     }
     setCccdStatus('running');
     setCccdSummary('');
     try {
-      // apiFetch tự đọc accessToken từ localStorage — accessToken vừa lưu ở
-      // Test 1 (saveAuth chưa gọi ở trang này, nên set thủ công vào localStorage
-      // để apiFetch dùng được ngay, không cần rời trang đăng nhập lại).
-      localStorage.setItem('accessToken', accessToken);
+      // Không cần set token thủ công nữa — cookie httpOnly từ Test 1 được
+      // trình duyệt tự động gửi kèm (apiFetch dùng credentials: 'include').
       const data = await apiFetch<{ items: { id: string; businessName: string; ownerIdCard: string }[] }>(
         '/admin/businesses?pageSize=50',
       );

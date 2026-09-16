@@ -2,6 +2,10 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+// import mặc định (default import) không hoạt động với cookie-parser ở
+// runtime khi esModuleInterop chưa bật trong tsconfig.json (dự án đang tắt) —
+// dùng namespace import để lấy đúng function CommonJS gốc.
+import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
@@ -13,6 +17,10 @@ async function bootstrap() {
   // mặc định vì service này serve Swagger UI ở /api/docs — CSP mặc định của
   // helmet sẽ chặn inline script mà swagger-ui cần để chạy.
   app.use(helmet({ contentSecurityPolicy: false }));
+
+  // Đọc cookie httpOnly chứa access/refresh token (thay localStorage phía
+  // web — audit finding: token nhạy cảm lưu localStorage dễ bị đánh cắp XSS).
+  app.use(cookieParser());
 
   // Bảo mật cơ bản: validate toàn bộ input đầu vào (Mục 7.2 spec)
   app.useGlobalPipes(

@@ -50,61 +50,9 @@ interface PointsData {
   history?: PointHistoryItem[];
 }
 
-// Fallback demo data cho Vercel Cloud
-const MOCK_MEMBER_DATA: MemberData = {
-  id: 'mem-demo-001',
-  memberCode: '369-888999',
-  status: 'APPROVED',
-  points: 1250,
-  user: {
-    fullName: 'Nguyễn Văn Nông Dân',
-    email: 'nongdan369@gmail.com',
-    phone: '0988 123 456',
-  },
-  level: {
-    id: 'lvl-2',
-    name: 'Thành viên Vàng',
-    minPoints: 1000,
-  },
-  referrals: [
-    {
-      id: 'ref-1',
-      memberCode: '369-100201',
-      status: 'APPROVED',
-      createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-      user: { fullName: 'Trần Thị Mai' },
-    },
-    {
-      id: 'ref-2',
-      memberCode: '369-100202',
-      status: 'PENDING',
-      createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      user: { fullName: 'Lê Văn Hòa' },
-    },
-  ],
-};
-
-const MOCK_POINTS_DATA: PointsData = {
-  totalPoints: 1250,
-  level: { id: 'lvl-2', name: 'Thành viên Vàng', minPoints: 1000 },
-  history: [
-    {
-      id: 'ph-1',
-      points: 500,
-      reason: 'Thưởng giới thiệu thành viên 369-100201 thành công',
-      createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    },
-    {
-      id: 'ph-2',
-      points: 750,
-      reason: 'Tích điểm từ đơn hàng nông sản #ORD-369-0892',
-      createdAt: new Date(Date.now() - 86400000 * 12).toISOString(),
-    },
-  ],
-};
-
 export default function MemberProfilePage() {
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [member, setMember] = useState<MemberData | null>(null);
   const [pointsData, setPointsData] = useState<PointsData | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'referrals' | 'points' | 'password'>('overview');
@@ -125,6 +73,7 @@ export default function MemberProfilePage() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const [mRes, pRes] = await Promise.all([
         apiFetch<MemberData>('/members/me'),
@@ -132,10 +81,13 @@ export default function MemberProfilePage() {
       ]);
       setMember(mRes);
       setPointsData(pRes);
-    } catch {
-      // Fallback mượt mà trên Vercel Cloud khi không có kết nối DB live
-      setMember(MOCK_MEMBER_DATA);
-      setPointsData(MOCK_POINTS_DATA);
+    } catch (err: any) {
+      // Trước đây lỗi tải API bị nuốt và thay bằng hồ sơ + điểm thưởng GIẢ
+      // (mã thành viên, số điểm, mạng lưới giới thiệu bịa) — khách có thể
+      // tưởng nhầm là dữ liệu thật của chính mình. Giờ hiện đúng lỗi thật.
+      setMember(null);
+      setPointsData(null);
+      setLoadError(err?.message || 'Không tải được hồ sơ thành viên — vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -207,6 +159,11 @@ export default function MemberProfilePage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 space-y-8">
+      {loadError && (
+        <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm font-medium text-red-700">
+          ⚠️ {loadError}
+        </div>
+      )}
       {/* Header & Avatar Card */}
       <div className="rounded-2xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 p-6 sm:p-8 text-white shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">

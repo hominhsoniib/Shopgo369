@@ -50,46 +50,11 @@ export default function CartPage() {
         setError('Vui lòng đăng nhập để xem giỏ hàng của bạn.');
         return;
       }
-      // Demo Fallback cho Vercel Cloud khi chưa kết nối Backend API local
-      setError('');
-      setCart({
-        cartId: 'mock-cart-id',
-        items: [
-          {
-            productId: 'prod-gao-st25',
-            quantity: 2,
-            product: {
-              name: 'Gạo ST25 Thượng Hạng (Túi 5kg)',
-              basePrice: '180000',
-              images: [{ url: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop' }],
-              inventory: { quantityOnHand: 200, reservedQuantity: 0 },
-              store: {
-                id: 'store-an-giang',
-                name: 'Nông Sản An Giang',
-                slug: 'nong-san-an-giang',
-                business: { id: 'biz-an-giang', businessName: 'HKD Hợp Tác Xã Lúa Vàng An Giang' },
-              },
-            },
-          },
-          {
-            productId: 'prod-tra-oolong',
-            quantity: 1,
-            product: {
-              name: 'Trà Oolong Bảo Lộc Thượng Hạng (Hộp 200g)',
-              basePrice: '250000',
-              images: [{ url: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&auto=format&fit=crop' }],
-              inventory: { quantityOnHand: 150, reservedQuantity: 0 },
-              store: {
-                id: 'store-lam-dong',
-                name: 'Trà Oolong Lâm Đồng',
-                slug: 'tra-oolong-lam-dong',
-                business: { id: 'biz-lam-dong', businessName: 'HKD Trà Oolong Cao Nguyên Lâm Đồng' },
-              },
-            },
-          },
-        ],
-        subtotal: 610000,
-      });
+      // Trước đây lỗi khác 401 (mất mạng, server lỗi...) bị nuốt và thay bằng
+      // giỏ hàng GIẢ có sẵn 2 sản phẩm mẫu — khách có thể thao tác nhầm trên
+      // dữ liệu không tồn tại. Giờ hiện đúng lỗi thật.
+      setCart(null);
+      setError(err?.message || 'Không tải được giỏ hàng — vui lòng thử lại.');
     }
   }
 

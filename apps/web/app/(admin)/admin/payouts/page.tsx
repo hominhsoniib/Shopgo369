@@ -34,9 +34,11 @@ export default function AdminPayoutsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('PENDING');
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
 
   const fetchPayouts = () => {
     setLoading(true);
+    setError('');
     const query = new URLSearchParams();
     if (statusFilter) query.set('status', statusFilter);
 
@@ -45,40 +47,12 @@ export default function AdminPayoutsPage() {
         setPayouts(res.items);
         setLoading(false);
       })
-      .catch(() => {
-        const mockPayouts: PayoutItem[] = [
-          {
-            id: 'po-1',
-            periodLabel: 'Kỳ hoa hồng Tháng 8/2026',
-            totalAmount: 1850000,
-            status: 'PENDING',
-            paidAt: null,
-            createdAt: new Date().toISOString(),
-            referrer: { user: { fullName: 'Nguyễn Thị Hoa', email: 'hoanguyen@369.vn', phone: '0918889999' } },
-            _count: { transactions: 15 },
-          },
-          {
-            id: 'po-2',
-            periodLabel: 'Kỳ hoa hồng Tháng 8/2026',
-            totalAmount: 3400000,
-            status: 'PENDING',
-            paidAt: null,
-            createdAt: new Date().toISOString(),
-            referrer: { user: { fullName: 'Phạm Minh Đức', email: 'ducpham@369.vn', phone: '0903456789' } },
-            _count: { transactions: 28 },
-          },
-          {
-            id: 'po-3',
-            periodLabel: 'Kỳ hoa hồng Tháng 7/2026',
-            totalAmount: 5200000,
-            status: 'PAID',
-            paidAt: new Date(Date.now() - 864000000).toISOString(),
-            createdAt: new Date(Date.now() - 1000000000).toISOString(),
-            referrer: { user: { fullName: 'Super Admin 369', email: 'admin@369.vn', phone: '0936999369' } },
-            _count: { transactions: 42 },
-          },
-        ];
-        setPayouts(mockPayouts);
+      .catch((err: any) => {
+        // Trước đây lỗi tải API bị nuốt và thay bằng 3 payout GIẢ (tên/số tiền
+        // bịa) — admin có thể tưởng đã duyệt/chi trả xong việc thật. Giờ hiện
+        // đúng lỗi thật, không tự bịa dữ liệu tài chính.
+        setPayouts([]);
+        setError(err?.message || 'Không tải được danh sách payout — vui lòng thử lại.');
         setLoading(false);
       });
   };
@@ -124,6 +98,11 @@ export default function AdminPayoutsPage() {
       {msg && (
         <div className="mb-4 rounded-lg bg-green-50 p-3 text-xs font-medium text-green-900">
           {msg}
+        </div>
+      )}
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 p-3 text-xs font-medium text-red-700">
+          ⚠️ {error}
         </div>
       )}
 

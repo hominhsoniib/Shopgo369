@@ -96,56 +96,15 @@ export default function AdminBusinessesPage() {
     apiFetch<ApiResponse>(`/admin/businesses?${query.toString()}`)
       .then((res) => {
         setBusinesses(res.items);
+        setMsg(null);
         setLoading(false);
       })
-      .catch(() => {
-        const mockBusinesses: BusinessItem[] = [
-          {
-            id: 'biz-an-giang',
-            businessName: 'HKD Hợp Tác Xã Lúa Vàng An Giang',
-            taxCode: '8001234567',
-            ownerIdCard: '089090001234',
-            address: 'Số 123 Đường Lúa Vàng, Mỹ Xuyên, TP. Long Xuyên, Tỉnh An Giang',
-            status: 'VERIFIED',
-            createdAt: new Date().toISOString(),
-            member: { id: 'mem-1', user: { fullName: 'Nguyễn Văn Lúa', email: 'luavang@angiang.vn', phone: '0912345678' } },
-            store: { id: 'store-an-giang', name: 'Nông Sản An Giang', slug: 'nong-san-an-giang', status: 'ACTIVE' },
-          },
-          {
-            id: 'biz-lam-dong',
-            businessName: 'HKD Trà Oolong Cao Nguyên Lâm Đồng',
-            taxCode: '8007654321',
-            ownerIdCard: '068088005678',
-            address: 'Thôn 4, Cầu Đất, Xã Xuân Trường, TP. Đà Lạt, Tỉnh Lâm Đồng',
-            status: 'VERIFIED',
-            createdAt: new Date().toISOString(),
-            member: { id: 'mem-2', user: { fullName: 'Trần Thị Trà', email: 'traoolong@lamdong.vn', phone: '0987654321' } },
-            store: { id: 'store-lam-dong', name: 'Trà Oolong Lâm Đồng', slug: 'tra-oolong-lam-dong', status: 'ACTIVE' },
-          },
-          {
-            id: 'biz-gia-lai',
-            businessName: 'HKD Mật Ong & Phấn Hoa Gia Lai',
-            taxCode: '8009998881',
-            ownerIdCard: '064092003456',
-            address: 'Tổ 2, Phường Hoa Lư, TP. Pleiku, Tỉnh Gia Lai',
-            status: 'VERIFIED',
-            createdAt: new Date().toISOString(),
-            member: { id: 'mem-3', user: { fullName: 'Lê Văn Mật', email: 'matong@gialai.vn', phone: '0905111222' } },
-            store: { id: 'store-gia-lai', name: 'Mật Ong Gia Lai', slug: 'mat-ong-gia-lai', status: 'ACTIVE' },
-          },
-          {
-            id: 'biz-369',
-            businessName: 'HKD Nông Sản Hợp Tác Xã 369',
-            taxCode: '8003693699',
-            ownerIdCard: '001099888999',
-            address: 'Tòa nhà HTX 369, Đường Phạm Hùng, Q. Nam Từ Liêm, Hà Nội',
-            status: 'VERIFIED',
-            createdAt: new Date().toISOString(),
-            member: { id: 'mem-4', user: { fullName: 'Super Admin 369', email: 'admin@369.vn', phone: '0936999369' } },
-            store: { id: 'store-369', name: 'Nông Sản Hợp Tác Xã 369', slug: 'nong-san-369', status: 'ACTIVE' },
-          },
-        ];
-        setBusinesses(mockBusinesses);
+      .catch((err: any) => {
+        // Trước đây lỗi tải API bị nuốt và thay bằng 4 hồ sơ KYC GIẢ (kèm cả
+        // số CCCD bịa, trạng thái "đã VERIFIED" sẵn) — đây là màn hình admin
+        // xét duyệt pháp lý hộ kinh doanh, không được phép hiện dữ liệu bịa.
+        setBusinesses([]);
+        setMsg({ text: err?.message || 'Không tải được danh sách hồ sơ Hộ kinh doanh — vui lòng thử lại.', type: 'error' });
         setLoading(false);
       });
   };

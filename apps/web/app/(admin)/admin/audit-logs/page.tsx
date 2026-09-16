@@ -27,6 +27,7 @@ interface ApiResponse {
 export default function AdminAuditLogsPage() {
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     apiFetch<ApiResponse>('/admin/audit-logs')
@@ -34,40 +35,12 @@ export default function AdminAuditLogsPage() {
         setLogs(res.items);
         setLoading(false);
       })
-      .catch(() => {
-        const mockLogs: AuditLogItem[] = [
-          {
-            id: 'log-1',
-            action: 'VERIFY_BUSINESS_KYC',
-            entityType: 'BUSINESS',
-            entityId: 'biz-an-giang-12345678',
-            beforeData: { status: 'PENDING_VERIFICATION' },
-            afterData: { status: 'VERIFIED' },
-            createdAt: new Date().toISOString(),
-            user: { fullName: 'Super Admin 369', email: 'admin@369.vn' },
-          },
-          {
-            id: 'log-2',
-            action: 'APPROVE_STORE_CREATION',
-            entityType: 'STORE',
-            entityId: 'store-an-giang-87654321',
-            beforeData: { status: 'INACTIVE' },
-            afterData: { status: 'ACTIVE' },
-            createdAt: new Date(Date.now() - 3600000).toISOString(),
-            user: { fullName: 'Super Admin 369', email: 'admin@369.vn' },
-          },
-          {
-            id: 'log-3',
-            action: 'CONFIRM_PAYOUT_TRANSFER',
-            entityType: 'PAYOUT',
-            entityId: 'po-1-9988776655443322',
-            beforeData: { status: 'PENDING' },
-            afterData: { status: 'PAID' },
-            createdAt: new Date(Date.now() - 7200000).toISOString(),
-            user: { fullName: 'Super Admin 369', email: 'admin@369.vn' },
-          },
-        ];
-        setLogs(mockLogs);
+      .catch((err: any) => {
+        // Trước đây lỗi tải API bị nuốt và thay bằng 3 log GIẢ (kể cả log
+        // "VERIFY_BUSINESS_KYC" bịa) — nhật ký audit là bằng chứng thao tác
+        // thật, tuyệt đối không được bịa. Giờ hiện đúng lỗi thật.
+        setLogs([]);
+        setError(err?.message || 'Không tải được nhật ký audit — vui lòng thử lại.');
         setLoading(false);
       });
   }, []);
@@ -78,6 +51,12 @@ export default function AdminAuditLogsPage() {
         <h1 className="text-xl font-bold text-gray-900">Nhật Ký Thao Tác Quản Trị (Audit Logs)</h1>
         <p className="text-xs text-gray-500">Ghi vết toàn bộ thao tác nhạy cảm của Admin (đình chỉ gian hàng, duyệt KYC, gỡ sản phẩm...)</p>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 p-3 text-xs font-medium text-red-700">
+          ⚠️ {error}
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
         <table className="w-full text-left text-xs">

@@ -1,11 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Bảo mật: security headers chuẩn (audit finding #3) — x-frame-options,
+  // x-content-type-options, strict-transport-security... Tắt contentSecurityPolicy
+  // mặc định vì service này serve Swagger UI ở /api/docs — CSP mặc định của
+  // helmet sẽ chặn inline script mà swagger-ui cần để chạy.
+  app.use(helmet({ contentSecurityPolicy: false }));
 
   // Bảo mật cơ bản: validate toàn bộ input đầu vào (Mục 7.2 spec)
   app.useGlobalPipes(

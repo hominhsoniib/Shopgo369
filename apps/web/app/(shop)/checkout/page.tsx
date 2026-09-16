@@ -31,6 +31,7 @@ const inputClass =
 export default function CheckoutPage() {
   const router = useRouter();
   const [methods, setMethods] = useState<ShippingMethod[]>([]);
+  const [methodsError, setMethodsError] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,22 +54,30 @@ export default function CheckoutPage() {
     note: '',
   });
 
-  useEffect(() => {
+  function loadShippingMethods() {
+    setMethodsError('');
     apiFetch<ShippingMethod[]>('/shipping/methods')
       .then((data) => {
         if (data && data.length > 0) {
           setMethods(data);
           setForm((f) => ({ ...f, shippingMethodId: data[0].id }));
+        } else {
+          setMethodsError('Hiện chưa có phương thức vận chuyển nào khả dụng.');
         }
       })
-      .catch(() => {
-        const mockMethods: ShippingMethod[] = [
-          { id: 'ship-fast', name: 'Giao hàng nhanh (2-3 ngày)', baseFee: '35000', estimatedDays: 2 },
-          { id: 'ship-standard', name: 'Giao hàng tiết kiệm (4-5 ngày)', baseFee: '20000', estimatedDays: 4 },
-        ];
-        setMethods(mockMethods);
-        setForm((f) => ({ ...f, shippingMethodId: mockMethods[0].id }));
+      .catch((err: any) => {
+        // Trước đây lỗi tải API bị nuốt và thay bằng 2 phương thức vận chuyển
+        // GIẢ với id "ship-fast"/"ship-standard" — id này KHÔNG tồn tại trong
+        // DB, nên nếu khách đặt hàng với ID giả, backend sẽ từ chối ở bước tạo
+        // đơn thật (hoặc tệ hơn nếu validate lỏng). Giờ hiện đúng lỗi thật,
+        // không cho đặt hàng khi chưa có phương thức vận chuyển thật.
+        setMethods([]);
+        setMethodsError(err?.message || 'Không tải được danh sách phương thức vận chuyển — vui lòng thử lại.');
       });
+  }
+
+  useEffect(() => {
+    loadShippingMethods();
   }, []);
 
   useEffect(() => {
@@ -204,6 +213,16 @@ export default function CheckoutPage() {
           <h2 className="mb-4 text-sm font-bold text-neutral-900 flex items-center gap-2">
             <span>🚚</span> Phương thức vận chuyển
           </h2>
+          {methodsError ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+              <p className="mb-2 font-semibold">{methodsError}</p>
+              <Button type="button" variant="ghost" size="sm" onClick={loadShippingMethods}>
+                Thử lại
+              </Button>
+            </div>
+          ) : methods.length === 0 ? (
+            <p className="text-xs text-neutral-400">Đang tải phương thức vận chuyển...</p>
+          ) : (
           <div className="flex flex-col gap-2.5">
             {methods.map((m) => {
               const isSelected = form.shippingMethodId === m.id;
@@ -236,6 +255,7 @@ export default function CheckoutPage() {
               );
             })}
           </div>
+          )}
         </Card>
 
         {/* SECTION VOUCHER MIỄN PHÍ VẬN CHUYỂN — chỉ hiện khi có mã active thật từ API */}
@@ -370,7 +390,13 @@ export default function CheckoutPage() {
 
         {error && <p className="text-xs font-semibold text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-200">{error}</p>}
 
-        <Button type="submit" variant="primary" size="lg" disabled={submitting} className="w-full py-3.5 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 shadow-md">
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          disabled={submitting || methods.length === 0}
+          className="w-full py-3.5 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 shadow-md"
+        >
           {submitting ? 'Đang tạo đơn hàng...' : '🚀 XÁC NHẬN ĐẶT HÀNG NGAY'}
         </Button>
       </form>

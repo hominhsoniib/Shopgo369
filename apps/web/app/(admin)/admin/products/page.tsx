@@ -474,7 +474,7 @@ export default function AdminProductsPage() {
                 </label>
                 {stores.length === 0 ? (
                   <div className="rounded-xl bg-amber-50 p-2.5 text-amber-800 border border-amber-200">
-                    ⚠️ Chưa có Gian Hàng nào hoạt động. Vui lòng tạo Gian Hàng tại mục "Gian hàng" trước!
+                    ⚠️ Chưa có Gian Hàng nào hoạt động. Vui lòng tạo Gian Hàng tại mục &quot;Gian hàng&quot; trước!
                   </div>
                 ) : (
                   <select

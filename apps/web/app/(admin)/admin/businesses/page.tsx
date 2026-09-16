@@ -725,7 +725,7 @@ export default function AdminBusinessesPage() {
             </div>
 
             <p className="text-xs text-gray-600 leading-relaxed mb-4">
-              Bạn có chắc chắn muốn xóa Hộ kinh doanh <strong className="text-gray-900">"{deletingBusiness.businessName}"</strong> không?
+              Bạn có chắc chắn muốn xóa Hộ kinh doanh <strong className="text-gray-900">&quot;{deletingBusiness.businessName}&quot;</strong> không?
             </p>
 
             <div className="rounded-lg bg-rose-50 p-3 text-[11px] text-rose-900 border border-rose-200 mb-5">

@@ -164,7 +164,7 @@ export default function RegisterBusinessPage() {
           </div>
 
           <div className="rounded-xl bg-blue-50 p-4 border border-blue-100 text-[11px] text-blue-900 leading-relaxed">
-            ℹ️ <strong>Cam kết thông tin:</strong> Bằng việc nhấn "Gửi Đăng Ký KYC", bạn cam kết các thông tin cung cấp là hoàn toàn chính xác và chịu trách nhiệm trước pháp luật về hoạt động kinh doanh của mình trên nền tảng 369.
+            ℹ️ <strong>Cam kết thông tin:</strong> Bằng việc nhấn &quot;Gửi Đăng Ký KYC&quot;, bạn cam kết các thông tin cung cấp là hoàn toàn chính xác và chịu trách nhiệm trước pháp luật về hoạt động kinh doanh của mình trên nền tảng 369.
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t">

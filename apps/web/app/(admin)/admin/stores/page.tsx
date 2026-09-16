@@ -484,7 +484,7 @@ export default function AdminStoresPage() {
                   <p className="text-gray-400">Đang tải danh sách Hộ Kinh Doanh...</p>
                 ) : unattachedBusinesses.length === 0 ? (
                   <div className="rounded-lg bg-amber-50 p-2.5 text-amber-800">
-                    ⚠️ Không có Hộ Kinh Doanh (VERIFIED) nào chưa có gian hàng. Vui lòng duyệt KYC Hộ Kinh Doanh trước tại mục "Hộ Kinh Doanh".
+                    ⚠️ Không có Hộ Kinh Doanh (VERIFIED) nào chưa có gian hàng. Vui lòng duyệt KYC Hộ Kinh Doanh trước tại mục &quot;Hộ Kinh Doanh&quot;.
                   </div>
                 ) : (
                   <select
@@ -701,7 +701,7 @@ export default function AdminStoresPage() {
             </div>
 
             <p className="text-xs text-gray-600 leading-relaxed mb-4">
-              Bạn có chắc chắn muốn xóa / lưu trữ gian hàng <strong className="text-gray-900">"{deletingStore.name}"</strong> không?
+              Bạn có chắc chắn muốn xóa / lưu trữ gian hàng <strong className="text-gray-900">&quot;{deletingStore.name}&quot;</strong> không?
             </p>
 
             <div className="rounded-lg bg-rose-50 p-3 text-[11px] text-rose-900 border border-rose-200 mb-5">

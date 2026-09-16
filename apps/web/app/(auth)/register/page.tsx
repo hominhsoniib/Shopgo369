@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { apiFetch } from '../../../lib/api-client';
-import { AuthUser, saveAuth } from '../../../lib/auth-client';
+import { AuthUser, mergeGuestCartOnLogin, saveAuth } from '../../../lib/auth-client';
 import PasswordInput from '../../../components/ui/PasswordInput';
 import Button from '../../../components/ui/Button';
 import Card from '../../../components/ui/Card';
@@ -32,6 +32,7 @@ export default function RegisterPage() {
         },
       );
       saveAuth(data.user);
+      await mergeGuestCartOnLogin();
       window.location.href = '/'; // full reload — Header (đã mount sẵn trong layout) đọc lại localStorage đúng trạng thái mới
     } catch (err: any) {
       setError(err.message ?? 'Đăng ký thất bại');

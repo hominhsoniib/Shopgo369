@@ -10,6 +10,7 @@
  * mang tính hiển thị, không phải nguồn xác thực.
  */
 import { apiFetch } from './api-client';
+import { peekGuestCartId, clearGuestCartId } from './guest-cart';
 
 export interface AuthUser {
   id: string;
@@ -56,4 +57,24 @@ export async function logout() {
     // ở trạng thái "tưởng đã đăng xuất" nhưng UI vẫn hiện đã đăng nhập.
   }
   clearAuth();
+}
+
+/**
+ * Gộp giỏ hàng guest (nếu khách có thêm sản phẩm TRƯỚC khi đăng nhập) vào
+ * giỏ hàng của tài khoản vừa đăng nhập/đăng ký — gọi ngay sau saveAuth(),
+ * TRƯỚC khi điều hướng đi trang khác (xem POST /cart/merge, CartService.
+ * mergeGuestCartIntoUser). Không throw nếu lỗi (mất mạng, không có giỏ
+ * guest...) — việc merge cart phụ không được phép chặn luồng đăng nhập
+ * chính; im lặng bỏ qua và vẫn xoá guestCartId cũ để không kẹt lại lần sau.
+ */
+export async function mergeGuestCartOnLogin() {
+  const sessionId = peekGuestCartId();
+  if (!sessionId) return;
+  try {
+    await apiFetch('/cart/merge', { method: 'POST', body: JSON.stringify({ sessionId }) });
+  } catch {
+    // Bỏ qua — ví dụ giỏ guest đã trống/không tồn tại, hoặc lỗi mạng tạm thời.
+  } finally {
+    clearGuestCartId();
+  }
 }

@@ -124,6 +124,11 @@ export default function Header() {
             </>
           ) : (
             <>
+              {/* Giỏ hàng vẫn hiện cho khách chưa đăng nhập — cart hỗ trợ guest
+                  qua X-Guest-Cart-Id, chỉ cần đăng nhập lúc thanh toán thật. */}
+              <a href="/cart" className="font-semibold text-neutral-700 hover:text-emerald-700 transition">
+                🛒 Giỏ hàng
+              </a>
               <a href="/login" className="font-semibold text-neutral-700 hover:text-emerald-700 transition">
                 Đăng nhập
               </a>

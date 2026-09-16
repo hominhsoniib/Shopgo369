@@ -5,19 +5,28 @@
  * KHÔNG còn tự đọc token từ localStorage/gắn header Authorization thủ công
  * như trước. `credentials: 'include'` bắt buộc trên MỌI request để trình
  * duyệt gửi kèm cookie (kể cả khi web và api khác domain/port).
+ *
+ * Riêng route /cart/* — backend hỗ trợ CẢ khách vãng lai (chưa đăng nhập)
+ * qua header X-Guest-Cart-Id (xem apps/api CartController). Header này vẫn
+ * gửi an toàn ngay cả khi đã đăng nhập — backend ưu tiên cookie/userId,
+ * chỉ dùng header khi thật sự chưa đăng nhập (xem buildIdentity() backend).
  */
+import { getGuestCartId } from './guest-cart';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
 let isRefreshing = false;
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const isPublicAuthRoute = path.startsWith('/auth/login') || path.startsWith('/auth/register') || path.startsWith('/auth/refresh');
+  const isCartRoute = path.startsWith('/cart');
 
   let res = await fetch(`${API_URL}${path}`, {
     ...options,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...(isCartRoute && typeof window !== 'undefined' ? { 'X-Guest-Cart-Id': getGuestCartId() } : {}),
       ...options?.headers,
     },
   });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { apiFetch } from '../../../../lib/api-client';
 import Button from '../../../../components/ui/Button';
 import Badge from '../../../../components/ui/Badge';
@@ -21,12 +21,12 @@ interface ProductDetail {
 
 export default function ProductDetailPage() {
   const params = useParams<{ slug: string }>();
-  const router = useRouter();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [error, setError] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
   const [addedMessage, setAddedMessage] = useState('');
+  const [addError, setAddError] = useState('');
 
   useEffect(() => {
     if (!params?.slug) return;
@@ -60,19 +60,21 @@ export default function ProductDetailPage() {
     if (!product) return;
     setAdding(true);
     setAddedMessage('');
+    setAddError('');
     try {
+      // /cart/items hỗ trợ cả khách chưa đăng nhập (guest cart qua header
+      // X-Guest-Cart-Id — xem lib/api-client.ts) — không cần bắt đăng nhập
+      // trước khi thêm vào giỏ nữa, chỉ cần đăng nhập lúc thanh toán thật.
       await apiFetch('/cart/items', {
         method: 'POST',
         body: JSON.stringify({ productId: product.id, quantity }),
       });
-      setAddedMessage('Đã thêm vào giỏ hàng');
-    } catch (err: any) {
-      // Chưa đăng nhập → apiFetch ném lỗi 401 (không có Authorization header)
-      if (err.message?.includes('401') || err.message?.toLowerCase().includes('unauthorized')) {
-        router.push('/login');
-        return;
-      }
       setAddedMessage(`Đã thêm ${quantity} x ${product.name} vào giỏ hàng`);
+    } catch (err: any) {
+      // Trước đây lỗi thêm giỏ hàng (ngoài 401) bị nuốt và vẫn hiện thông báo
+      // "đã thêm thành công" — khách tưởng nhầm trong khi thực tế KHÔNG có gì
+      // được thêm vào giỏ. Giờ hiện đúng lỗi thật.
+      setAddError(err?.message || 'Không thêm được vào giỏ hàng — vui lòng thử lại.');
     } finally {
       setAdding(false);
     }
@@ -137,6 +139,7 @@ export default function ProductDetailPage() {
               </a>
             </p>
           )}
+          {addError && <p className="mt-3 text-sm text-danger-600">{addError}</p>}
         </div>
       </div>
     </main>

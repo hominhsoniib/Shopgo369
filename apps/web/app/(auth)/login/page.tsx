@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { apiFetch } from '../../../lib/api-client';
-import { AuthUser, clearAuth, saveAuth } from '../../../lib/auth-client';
+import { AuthUser, clearAuth, mergeGuestCartOnLogin, saveAuth } from '../../../lib/auth-client';
 import PasswordInput from '../../../components/ui/PasswordInput';
 import Button from '../../../components/ui/Button';
 import Card from '../../../components/ui/Card';
@@ -55,6 +55,7 @@ export default function LoginPage() {
       }
 
       saveAuth(data.user);
+      await mergeGuestCartOnLogin();
       redirectByRole(data.user.roles || []);
     } catch (err: any) {
       // Đăng nhập thất bại thật (sai mật khẩu, backend lỗi, mất mạng...) —
@@ -81,6 +82,7 @@ export default function LoginPage() {
         },
       );
       saveAuth(data.user);
+      await mergeGuestCartOnLogin();
       redirectByRole(data.user.roles || []);
     } catch (err: any) {
       setError(err?.message || 'Mã xác thực không đúng.');

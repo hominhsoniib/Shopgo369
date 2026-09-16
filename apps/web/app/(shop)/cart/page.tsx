@@ -42,17 +42,14 @@ export default function CartPage() {
 
   async function loadCart() {
     try {
+      // /cart hỗ trợ cả khách chưa đăng nhập (guest, định danh qua header
+      // X-Guest-Cart-Id — xem lib/api-client.ts + lib/guest-cart.ts), nên
+      // không còn nhánh "401 → bắt đăng nhập" như trước — mọi lỗi ở đây đều
+      // là lỗi thật (mất mạng, server lỗi...), không phải do chưa đăng nhập.
       const data = await apiFetch<CartData>('/cart');
       setCart(data);
       setError('');
     } catch (err: any) {
-      if (err.message?.includes('401') || err.message?.toLowerCase().includes('unauthorized')) {
-        setError('Vui lòng đăng nhập để xem giỏ hàng của bạn.');
-        return;
-      }
-      // Trước đây lỗi khác 401 (mất mạng, server lỗi...) bị nuốt và thay bằng
-      // giỏ hàng GIẢ có sẵn 2 sản phẩm mẫu — khách có thể thao tác nhầm trên
-      // dữ liệu không tồn tại. Giờ hiện đúng lỗi thật.
       setCart(null);
       setError(err?.message || 'Không tải được giỏ hàng — vui lòng thử lại.');
     }
@@ -100,8 +97,8 @@ export default function CartPage() {
           title="Không tải được giỏ hàng"
           description={error}
           action={
-            <Button variant="primary" onClick={() => router.push('/login')}>
-              Đăng nhập
+            <Button variant="primary" onClick={() => loadCart()}>
+              Thử lại
             </Button>
           }
         />

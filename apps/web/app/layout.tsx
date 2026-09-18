@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Be_Vietnam_Pro, Lora } from 'next/font/google';
 import '../styles/globals.css';
 import Header from '../components/Header';
+import AgeVerificationModal from '../components/AgeVerificationModal';
 
 const beVietnamPro = Be_Vietnam_Pro({
   subsets: ['latin', 'vietnamese'],
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="vi" className={`${beVietnamPro.variable} ${lora.variable}`}>
       <body className="min-h-screen bg-neutral-50 font-sans text-neutral-800 antialiased">
+        <AgeVerificationModal />
         <Header />
         {children}
       </body>
